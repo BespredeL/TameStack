@@ -55,3 +55,32 @@ func TestLoadConfigInitializesPathsAndSalt(t *testing.T) {
 		t.Error("salt must be reused across loads, not regenerated")
 	}
 }
+
+func TestLoadConfigPortableMode(t *testing.T) {
+	ForcePortable = true
+	defer func() { ForcePortable = false }()
+
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig failed in portable mode: %v", err)
+	}
+
+	if !cfg.IsPortable {
+		t.Fatal("expected IsPortable = true")
+	}
+
+	exePath, err := os.Executable()
+	var wantDir string
+	if err == nil {
+		wantDir = filepath.Join(filepath.Dir(exePath), "data")
+	} else {
+		wantDir = filepath.Join(".", "data")
+	}
+
+	if cfg.DataDir != wantDir {
+		t.Fatalf("DataDir = %q, want %q", cfg.DataDir, wantDir)
+	}
+
+	// Clean up created test data directory
+	defer os.RemoveAll(wantDir)
+}

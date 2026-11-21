@@ -62,9 +62,15 @@ ManifestDPIAware true
 !insertmacro MUI_PAGE_INSTFILES # Installing page.
 !insertmacro MUI_PAGE_FINISH # Finished installation page.
 
-!insertmacro MUI_UNPAGE_INSTFILES # Uinstalling page
+!insertmacro MUI_UNPAGE_CONFIRM # Confirm uninstallation page
+!insertmacro MUI_UNPAGE_INSTFILES # Uninstalling progress page
+!insertmacro MUI_UNPAGE_FINISH # Finished uninstallation page
 
-!insertmacro MUI_LANGUAGE "English" # Set the Language of the installer
+!insertmacro MUI_LANGUAGE "Russian" # Russian language support
+!insertmacro MUI_LANGUAGE "English" # English fallback / language support
+
+LangString RemoveUserData ${LANG_RUSSIAN} "Удалить базу данных, ключи шифрования и пользовательские настройки TameStack?$\r$\n$\r$\n(Выберите «Нет», если планируете переустановить приложение позже)"
+LangString RemoveUserData ${LANG_ENGLISH} "Do you want to delete TameStack database, encryption keys, and user settings?$\r$\n$\r$\n(Choose 'No' if you plan to reinstall later)"
 
 ## The following two statements can be used to sign the installer and the uninstaller. The path to the binaries are provided in %1
 #!uninstfinalize 'signtool --file "%1"'
@@ -72,7 +78,7 @@ ManifestDPIAware true
 
 Name "${INFO_PRODUCTNAME}"
 OutFile "..\..\bin\${INFO_PROJECTNAME}-${ARCH}-installer.exe" # Name of the installer's file.
-InstallDir "$PROGRAMFILES64\${INFO_COMPANYNAME}\${INFO_PRODUCTNAME}" # Default installing folder ($PROGRAMFILES is Program Files folder).
+InstallDir "$PROGRAMFILES64\${INFO_PRODUCTNAME}" # Default installing folder ($PROGRAMFILES is Program Files folder).
 ShowInstDetails show # This will always show the installation details.
 
 Function .onInit
@@ -80,6 +86,9 @@ Function .onInit
 FunctionEnd
 
 Section
+    # Close running instance if updating
+    nsExec::Exec 'taskkill /F /IM "${PRODUCT_EXECUTABLE}"'
+
     !insertmacro wails.setShellContext
 
     !insertmacro wails.webview2runtime
@@ -98,9 +107,10 @@ Section
 SectionEnd
 
 Section "uninstall"
-    !insertmacro wails.setShellContext
+    # Close running instance if any to avoid locked binary
+    nsExec::Exec 'taskkill /F /IM "${PRODUCT_EXECUTABLE}"'
 
-    RMDir /r "$AppData\${PRODUCT_EXECUTABLE}" # Remove the WebView2 DataPath
+    !insertmacro wails.setShellContext
 
     RMDir /r $INSTDIR
 
@@ -111,4 +121,18 @@ Section "uninstall"
     !insertmacro wails.unassociateCustomProtocols
 
     !insertmacro wails.deleteUninstaller
+
+    # Switch shell context to current user to access %AppData% (AppData\Roaming)
+    SetShellVarContext current
+
+    # Remove WebView2 runtime cache
+    RMDir /r "$AppData\${PRODUCT_EXECUTABLE}"
+
+    # Prompt user about removing databases and configuration files
+    ${If} ${FileExists} "$AppData\TameStack\*.*"
+        MessageBox MB_YESNO|MB_ICONQUESTION $(RemoveUserData) /SD IDNO IDNO skip_userdata
+        RMDir /r "$AppData\TameStack"
+    ${EndIf}
+
+skip_userdata:
 SectionEnd

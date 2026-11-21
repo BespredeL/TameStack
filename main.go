@@ -6,13 +6,15 @@ package main
 import (
 	"embed"
 	"log"
+	"path/filepath"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	"github.com/wailsapp/wails/v2/pkg/options/windows"
 )
 
-var AppVersion = "1.13.0"
+var AppVersion = "1.14.0"
 
 //go:embed all:frontend/dist
 var assets embed.FS
@@ -21,6 +23,13 @@ func main() {
 	app, err := NewApp()
 	if err != nil {
 		log.Fatalf("TameStack failed to start: %v", err)
+	}
+
+	var winOpts *windows.Options
+	if app.cfg.IsPortable {
+		winOpts = &windows.Options{
+			WebviewUserDataPath: filepath.Join(app.cfg.DataDir, "webview2"),
+		}
 	}
 
 	err = wails.Run(&options.App{
@@ -38,6 +47,7 @@ func main() {
 		Bind: []interface{}{
 			app,
 		},
+		Windows: winOpts,
 	})
 
 	if err != nil {

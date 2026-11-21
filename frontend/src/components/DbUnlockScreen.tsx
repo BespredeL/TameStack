@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getErrorMessage } from '../utils/errors';
 
-import { Database, Eye, EyeOff, AlertTriangle, Loader2, ShieldCheck } from 'lucide-react';
+import { Eye, EyeOff, AlertTriangle, Loader2, ShieldCheck } from 'lucide-react';
 import { UnlockDatabase } from '../../wailsjs/go/main/App';
 import { useTranslation } from '../i18n/LanguageContext';
 import logoIcon from '../assets/images/logo.png';
@@ -57,8 +57,8 @@ export const DbUnlockScreen: React.FC<DbUnlockScreenProps> = ({ onUnlocked }) =>
       <div className="relative w-full max-w-md bg-slate-900/90 border border-slate-800 rounded-2xl p-8 shadow-2xl shadow-black/80 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200">
         <div className="flex flex-col items-center text-center space-y-4 mb-8">
           <div className="relative">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-emerald-500/20 to-indigo-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-xl shadow-emerald-500/10">
-              <Database className="w-8 h-8" />
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 flex items-center justify-center p-2.5 shadow-xl shadow-indigo-500/10">
+              <img src={logoIcon} alt="TameStack" className="w-full h-full object-contain rounded-xl drop-shadow" />
             </div>
             <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-slate-950 border border-indigo-500/40 flex items-center justify-center text-indigo-400 shadow">
               <ShieldCheck className="w-3.5 h-3.5" />

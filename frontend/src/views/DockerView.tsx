@@ -267,74 +267,103 @@ export const DockerView: React.FC<DockerViewProps> = ({
       ) : status && status.installed ? (
         <>
           <div className="stat-grid">
-            <div className="bg-surface-850 border border-slate-800 p-4 rounded-2xl shadow-sm flex items-center gap-4">
+            <div className="bg-surface-850 border border-slate-800 p-4 rounded-2xl shadow-sm flex items-center gap-3.5 transition-colors">
               <div
-                className={`w-10 h-10 rounded-xl flex items-center justify-center ${isRunning
+                className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${isRunning
                     ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                     : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
                   }`}
               >
                 <Activity className="w-5 h-5" />
               </div>
-              <div>
-                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
-                  {t('docker.engineLabel')}
-                </span>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-sm font-bold text-white capitalize">{status.service_status}</span>
-                  <span className="text-[10px] text-slate-500 font-mono truncate max-w-[120px]">
-                    {status.version.split(',')[0]}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block truncate">
+                    {t('docker.engineLabel')}
                   </span>
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                      isRunning ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'
+                    }`}
+                  />
+                </div>
+                <div className="flex items-baseline gap-2 mt-0.5">
+                  <span className={`text-base font-bold capitalize ${isRunning ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {isRunning ? t('docker.statusActive') : t('docker.statusInactive')}
+                  </span>
+                  {status.version && (
+                    <span className="text-[11px] text-slate-500 font-mono truncate" title={status.version}>
+                      v{status.version.replace(/^Docker\s+version\s+/i, '').split(',')[0]}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
 
-            <div className="bg-surface-850 border border-slate-800 p-4 rounded-2xl shadow-sm flex items-center gap-4">
-              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+            <div className="bg-surface-850 border border-slate-800 p-4 rounded-2xl shadow-sm flex items-center gap-3.5 transition-colors">
+              <div className="w-11 h-11 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0">
                 <Container className="w-5 h-5" />
               </div>
-              <div>
-                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
+              <div className="min-w-0 flex-1">
+                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block truncate">
                   {t('docker.containers')}
                 </span>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-base font-bold text-white">
-                    {status.running_count}{' '}
-                    <span className="text-xs font-normal text-slate-400">{t('docker.containersActive', { count: status.containers_count })}</span>
+                <div className="flex items-baseline gap-1.5 mt-0.5">
+                  <span className="text-xl font-bold text-white font-mono">
+                    {status.running_count}
+                  </span>
+                  <span className="text-xs text-slate-400 font-medium">
+                    / {status.containers_count} {t('docker.containersActive')}
                   </span>
                 </div>
               </div>
             </div>
 
-            <div className="bg-surface-850 border border-slate-800 p-4 rounded-2xl shadow-sm flex items-center gap-4">
-              <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+            <div className="bg-surface-850 border border-slate-800 p-4 rounded-2xl shadow-sm flex items-center gap-3.5 transition-colors">
+              <div className="w-11 h-11 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 shrink-0">
                 <Layers className="w-5 h-5" />
               </div>
-              <div>
-                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
+              <div className="min-w-0 flex-1">
+                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block truncate">
                   {t('docker.imagesAndVolumes')}
                 </span>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-base font-bold text-white">
-                    {status.images_count}{' '}
-                    <span className="text-xs font-normal text-slate-400">{t('docker.imagesAndVolumesCount', { imgCount: status.images_count, volCount: status.volumes_count })}</span>
+                <div className="flex items-baseline gap-1.5 mt-0.5">
+                  <span className="text-xl font-bold text-white font-mono">
+                    {status.images_count}
+                  </span>
+                  <span className="text-xs text-slate-400 font-medium">
+                    {t('docker.imagesLabel')}
+                  </span>
+                  <span className="text-slate-600 font-bold mx-0.5">•</span>
+                  <span className="text-xl font-bold text-white font-mono">
+                    {status.volumes_count}
+                  </span>
+                  <span className="text-xs text-slate-400 font-medium">
+                    {t('docker.volumesLabel')}
                   </span>
                 </div>
               </div>
             </div>
 
-            <div className="bg-surface-850 border border-slate-800 p-4 rounded-2xl shadow-sm flex items-center justify-between">
-              <div>
-                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
-                  {t('docker.cleanup')}
-                </span>
-                <span className="text-xs text-slate-500">{t('docker.cleanupDesc')}</span>
+            <div className="bg-surface-850 border border-slate-800 p-4 rounded-2xl shadow-sm flex items-center justify-between gap-3 transition-colors">
+              <div className="flex items-center gap-3.5 min-w-0">
+                <div className="w-11 h-11 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block truncate">
+                    {t('docker.cleanup')}
+                  </span>
+                  <span className="text-xs text-slate-500 truncate block mt-0.5">
+                    {t('docker.cleanupDesc')}
+                  </span>
+                </div>
               </div>
               <Button
                 variant="secondary"
                 size="sm"
                 onClick={handlePrune}
-                icon={<Sparkles className="w-3.5 h-3.5 text-amber-400" />}
+                className="shrink-0"
               >
                 {t('docker.cleanupBtn')}
               </Button>

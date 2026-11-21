@@ -220,7 +220,10 @@ wails dev
 ### Option 2: Production Builds
 
 ```bash
-# Windows (x64)
+# Windows (x64) - NSIS installer (builds installer and .exe inside build/bin/)
+wails build -platform windows/amd64 -nsis
+
+# Windows (x64) - standard executable
 wails build -platform windows/amd64
 
 # Linux (x64)
@@ -229,8 +232,6 @@ wails build -platform linux/amd64
 # macOS (Universal)
 wails build -platform darwin/universal
 ```
-
-The resulting executable will be generated inside `build/bin/`.
 
 ---
 

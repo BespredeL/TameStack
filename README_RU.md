@@ -220,7 +220,10 @@ wails dev
 ### Вариант 2: Сборка production-бинарников
 
 ```bash
-# Для Windows (x64)
+# Для Windows (x64) — инсталлятор NSIS (создает установщик и .exe в build/bin/)
+wails build -platform windows/amd64 -nsis
+
+# Для Windows (x64) — стандартный исполняемый файл
 wails build -platform windows/amd64
 
 # Для Linux (x64)
@@ -229,8 +232,6 @@ wails build -platform linux/amd64
 # Для macOS (Universal)
 wails build -platform darwin/universal
 ```
-
-Собранный исполняемый файл создается в директории `build/bin/`.
 
 ---
 

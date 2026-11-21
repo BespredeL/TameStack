@@ -1,4 +1,4 @@
-﻿package update
+package update
 
 import (
 	"archive/zip"
@@ -377,6 +377,25 @@ func TestInstallZipArchiveHappyPath(t *testing.T) {
 	old, err := os.ReadFile(target + ".old")
 	if err != nil || string(old) != "OLD-EXE" {
 		t.Fatalf("old binary missing: %q %v", old, err)
+	}
+}
+
+func TestInstallColonDigestHappyPath(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("self-update swap is Windows-only")
+	}
+	exeBytes := []byte("NEW-EXE-COLON")
+	s, target := installerFixture(t, exeBytes, func() string {
+		sum := sha256.Sum256(exeBytes)
+		return "sha256:" + hex.EncodeToString(sum[:])
+	})
+
+	if err := s.Install(context.Background(), nil); err != nil {
+		t.Fatalf("Install failed with sha256: prefix: %v", err)
+	}
+	got, err := os.ReadFile(target)
+	if err != nil || string(got) != "NEW-EXE-COLON" {
+		t.Fatalf("binary not updated: %q %v", got, err)
 	}
 }
 

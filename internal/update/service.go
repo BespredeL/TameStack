@@ -155,6 +155,7 @@ func candidateAssets(goos, goarch string) []string {
 	case "windows":
 		return []string{
 			"TameStack-windows-amd64.exe",
+			"TameStack-windows-amd64-portable.exe",
 			"TameStack.exe",
 			"TameStack-windows-amd64.zip",
 		}
@@ -252,6 +253,10 @@ func (s *Service) Install(ctx context.Context, onProgress func(Progress)) error 
 	asset := s.pickAsset(result.Release)
 	if asset == nil {
 		return fmt.Errorf("в релизе %s нет архива для этой платформы", result.LatestVersion)
+	}
+
+	if !isDirWritable(filepath.Dir(target)) {
+		return fmt.Errorf("каталог программы защищён от записи (Program Files); скачайте и запустите установщик новой версии")
 	}
 
 	staging, err := os.MkdirTemp(filepath.Dir(target), ".shupdate-")
@@ -380,11 +385,16 @@ func (s *Service) verifyDigest(ctx context.Context, asset *Asset, archivePath st
 		return fmt.Errorf("некорректный ответ с контрольной суммой: %w", err)
 	}
 
-	const prefix = "sha256="
-	if !strings.HasPrefix(meta.Digest, prefix) {
+	var rawHex string
+	switch {
+	case strings.HasPrefix(meta.Digest, "sha256:"):
+		rawHex = strings.TrimPrefix(meta.Digest, "sha256:")
+	case strings.HasPrefix(meta.Digest, "sha256="):
+		rawHex = strings.TrimPrefix(meta.Digest, "sha256=")
+	default:
 		return fmt.Errorf("GitHub не опубликовал SHA-256 для этого релиза — обновление заблокировано")
 	}
-	want, err := hex.DecodeString(strings.TrimPrefix(meta.Digest, prefix))
+	want, err := hex.DecodeString(rawHex)
 	if err != nil || len(want) != sha256.Size {
 		return fmt.Errorf("некорректная контрольная сумма от GitHub")
 	}
@@ -397,6 +407,17 @@ func (s *Service) verifyDigest(ctx context.Context, asset *Asset, archivePath st
 		return fmt.Errorf("контрольная сумма архива не совпала — обновление отменено")
 	}
 	return nil
+}
+
+func isDirWritable(dir string) bool {
+	f, err := os.CreateTemp(dir, ".permcheck-")
+	if err != nil {
+		return false
+	}
+	name := f.Name()
+	f.Close()
+	os.Remove(name)
+	return true
 }
 
 func fileSHA256(path string) ([]byte, error) {

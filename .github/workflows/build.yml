@@ -160,14 +160,17 @@ jobs:
         include:
           - os: windows-latest
             platform: windows/amd64
+            build_flags: -nsis
             asset_name: TameStack-windows-amd64.exe
             binary_src: build/bin/TameStack.exe
           - os: ubuntu-22.04
             platform: linux/amd64
+            build_flags: ""
             asset_name: TameStack-linux-amd64
             binary_src: build/bin/TameStack
           - os: macos-latest
             platform: darwin/universal
+            build_flags: ""
             asset_name: TameStack-darwin-universal.zip
             binary_src: build/bin/TameStack.app
 
@@ -217,13 +220,15 @@ jobs:
 
       - name: Compile Application with Wails
         run: |
-          wails build -platform ${{ matrix.platform }}
+          wails build -platform ${{ matrix.platform }} ${{ matrix.build_flags }}
 
       - name: Prepare Artifact (Windows)
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
           Copy-Item -Path "${{ matrix.binary_src }}" -Destination "${{ matrix.asset_name }}"
+          Copy-Item -Path "${{ matrix.binary_src }}" -Destination "TameStack-windows-amd64-portable.exe"
+          Copy-Item -Path "build/bin/TameStack-amd64-installer.exe" -Destination "TameStack-windows-amd64-installer.exe"
 
       - name: Prepare Artifact (Linux)
         if: matrix.os == 'ubuntu-22.04'
@@ -243,6 +248,22 @@ jobs:
         with:
           name: ${{ matrix.asset_name }}
           path: ${{ matrix.asset_name }}
+          retention-days: 14
+
+      - name: Upload Windows Portable Artifact
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: TameStack-windows-amd64-portable.exe
+          path: TameStack-windows-amd64-portable.exe
+          retention-days: 14
+
+      - name: Upload Windows Installer Artifact
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: TameStack-windows-amd64-installer.exe
+          path: TameStack-windows-amd64-installer.exe
           retention-days: 14
 
   # --------------------------------------------------------------------------
