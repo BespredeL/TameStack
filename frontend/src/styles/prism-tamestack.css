@@ -1,0 +1,207 @@
+/* TameStack Dark Syntax Highlighting Theme */
+
+code[class*="language-"],
+pre[class*="language-"] {
+  color: #e2e8f0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.8125rem; /* 13px */
+  line-height: 1.55;
+  text-align: left;
+  white-space: pre;
+  word-spacing: normal;
+  word-break: normal;
+  word-wrap: normal;
+  tab-size: 2;
+  hyphens: none;
+}
+
+/* Syntax Tokens */
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+  color: #64748b; /* slate-500 */
+  font-style: italic;
+}
+
+.token.punctuation {
+  color: #94a3b8; /* slate-400 */
+}
+
+.token.namespace {
+  opacity: 0.7;
+}
+
+.token.property,
+.token.tag,
+.token.boolean,
+.token.number,
+.token.constant,
+.token.symbol {
+  color: #fbbf24; /* amber-400 */
+}
+
+.token.selector,
+.token.attr-name,
+.token.string,
+.token.char,
+.token.builtin {
+  color: #34d399; /* emerald-400 */
+}
+
+.token.operator,
+.token.entity,
+.token.url {
+  color: #38bdf8; /* sky-400 */
+}
+
+.token.atrule,
+.token.attr-value,
+.token.keyword {
+  color: #818cf8; /* indigo-400 */
+  font-weight: 600;
+}
+
+.token.function,
+.token.class-name {
+  color: #60a5fa; /* blue-400 */
+}
+
+.token.regex,
+.token.important,
+.token.variable {
+  color: #c084fc; /* purple-400 */
+}
+
+.token.deleted {
+  color: #f87171; /* red-400 */
+}
+
+.token.inserted {
+  color: #4ade80; /* green-400 */
+}
+
+/* Specialized Log Styling Tokens */
+.token.log-error {
+  color: #fda4af !important; /* rose-300 */
+  background: rgba(244, 63, 94, 0.2);
+  border-radius: 4px;
+  padding: 1px 4px;
+  font-weight: 700;
+}
+
+.token.log-warn {
+  color: #fde047 !important; /* yellow-300 */
+  background: rgba(234, 179, 8, 0.2);
+  border-radius: 4px;
+  padding: 1px 4px;
+  font-weight: 600;
+}
+
+.token.log-info {
+  color: #6ee7b7 !important; /* emerald-300 */
+  background: rgba(16, 185, 129, 0.15);
+  border-radius: 4px;
+  padding: 1px 4px;
+  font-weight: 600;
+}
+
+.token.log-debug {
+  color: #94a3b8 !important; /* slate-400 */
+  font-style: italic;
+}
+
+.token.log-date {
+  color: #38bdf8 !important; /* sky-400 */
+}
+
+.token.log-ip {
+  color: #2dd4bf !important; /* teal-400 */
+}
+
+.token.log-method {
+  color: #a78bfa !important; /* violet-400 */
+  font-weight: 600;
+}
+
+.token.log-status {
+  color: #fb923c !important; /* orange-400 */
+  font-weight: 600;
+}
+
+.token.log-path {
+  color: #cbd5e1 !important; /* slate-300 */
+}
+
+/* Editor Sync Container */
+.code-editor-root {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  background-color: #030712; /* gray-950 */
+}
+
+.code-editor-gutter {
+  width: 3.5rem;
+  background-color: #0b0f19;
+  border-right: 1px solid rgba(51, 65, 85, 0.6);
+  user-select: none;
+  text-align: right;
+  padding: 0.75rem 0.5rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.75rem;
+  line-height: 1.55rem;
+  color: #475569; /* slate-600 */
+  overflow: hidden;
+}
+
+.code-editor-pane {
+  position: relative;
+  flex: 1;
+  height: 100%;
+  overflow: auto;
+}
+
+.code-editor-pre,
+.code-editor-textarea {
+  position: absolute;
+  top: 0;
+  left: 0;
+  margin: 0;
+  padding: 0.75rem 1rem;
+  width: 100%;
+  min-height: 100%;
+  box-sizing: border-box;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.8125rem; /* 13px */
+  line-height: 1.55rem;
+  tab-size: 2;
+  white-space: pre;
+  word-break: normal;
+  border: none;
+  outline: none;
+}
+
+.code-editor-pre {
+  pointer-events: none;
+  background: transparent;
+  z-index: 1;
+}
+
+.code-editor-textarea {
+  z-index: 2;
+  background: transparent;
+  color: transparent;
+  caret-color: #ffffff;
+  resize: none;
+  overflow: hidden;
+}
+
+/* When word wrap is enabled */
+.code-editor-wrap .code-editor-pre,
+.code-editor-wrap .code-editor-textarea {
+  white-space: pre-wrap;
+  word-break: break-all;
+}

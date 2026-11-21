@@ -1,0 +1,280 @@
+name: Build & Release TameStack
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+    inputs:
+      force_release:
+        description: 'Force creation of a GitHub Release'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  packages: write
+  pull-requests: read
+
+jobs:
+  # --------------------------------------------------------------------------
+  # 1. Application Version & Build Decision
+  # --------------------------------------------------------------------------
+  version:
+    name: Read Application Version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.read_version.outputs.version }}
+      version_tag: ${{ steps.read_version.outputs.version_tag }}
+      should_build: ${{ steps.read_version.outputs.should_build }}
+      is_release: ${{ steps.read_version.outputs.is_release }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read Version and Decide Whether to Build
+        id: read_version
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          REF_NAME: ${{ github.ref_name }}
+          BASE_SHA: ${{ github.event.before }}
+          FORCE_RELEASE: ${{ inputs.force_release }}
+        run: |
+          set -euo pipefail
+
+          VER="$(sed -n 's/^var AppVersion *= *"\([^"]*\)".*/\1/p' main.go | head -n 1)"
+          if [[ -z "$VER" ]]; then
+            echo "::error::AppVersion not found in main.go"
+            exit 1
+          fi
+
+          SHOULD_BUILD="false"
+          PREVIOUS_VER=""
+
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            # A manual run explicitly requests a build.
+            SHOULD_BUILD="true"
+          elif [[ "$EVENT_NAME" == "push" && "$REF" == refs/tags/v* ]]; then
+            # A version tag explicitly requests a build.
+            SHOULD_BUILD="true"
+          elif [[ "$EVENT_NAME" == "push" && -n "$BASE_SHA" && "$BASE_SHA" != "0000000000000000000000000000000000000000" ]]; then
+            # For branch pushes, compare AppVersion with the previous commit.
+            PREVIOUS_VER="$(git show "${BASE_SHA}:main.go" 2>/dev/null \
+              | sed -n 's/^var AppVersion *= *"\([^"]*\)".*/\1/p' \
+              | head -n 1 || true)"
+
+            if [[ "$VER" != "$PREVIOUS_VER" ]]; then
+              SHOULD_BUILD="true"
+            fi
+          elif [[ "$EVENT_NAME" == "push" ]]; then
+            # Initial push / commit without a previous revision.
+            SHOULD_BUILD="true"
+          fi
+
+          TAG="v${VER}"
+          IS_REL="false"
+
+          if [[ "$SHOULD_BUILD" == "true" ]]; then
+            if [[ "$REF" == refs/tags/v* || "$REF" == "refs/heads/main" || "$REF" == "refs/heads/master" ]]; then
+              IS_REL="true"
+            fi
+          fi
+
+          if [[ "$FORCE_RELEASE" == "true" ]]; then
+            IS_REL="true"
+          fi
+
+          echo "Current application version: ${VER}"
+          echo "Previous application version: ${PREVIOUS_VER:-not available}"
+          echo "Build required: ${SHOULD_BUILD}"
+          echo "Release required: ${IS_REL}"
+          echo "Release tag: ${TAG}"
+
+          echo "version=${VER}" >> "$GITHUB_OUTPUT"
+          echo "version_tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "should_build=${SHOULD_BUILD}" >> "$GITHUB_OUTPUT"
+          echo "is_release=${IS_REL}" >> "$GITHUB_OUTPUT"
+
+  # --------------------------------------------------------------------------
+  # 2. Quality Gates & Automated Tests
+  # Tests run on every push and pull request, even when the version is unchanged.
+  # --------------------------------------------------------------------------
+  test:
+    name: Run Tests & Quality Gates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+          check-latest: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      # main.go embeds all:frontend/dist (gitignored), so the frontend must be
+      # built before any go tooling loads the package.
+      - name: Frontend Typecheck & Build Test
+        run: |
+          cd frontend
+          npm ci
+          npx tsc --noEmit
+          npm run build
+
+      - name: Go Vet & Test
+        run: |
+          go vet ./...
+          go test -v ./...
+
+  # --------------------------------------------------------------------------
+  # 3. Multi-Platform Compilation
+  # Runs only when AppVersion changes, on a version tag, or manually.
+  # --------------------------------------------------------------------------
+  build:
+    name: Build ${{ matrix.platform }}
+    needs: [version, test]
+    if: needs.version.outputs.should_build == 'true'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows/amd64
+            asset_name: TameStack-windows-amd64.exe
+            binary_src: build/bin/TameStack.exe
+          - os: ubuntu-22.04
+            platform: linux/amd64
+            asset_name: TameStack-linux-amd64
+            binary_src: build/bin/TameStack
+          - os: macos-latest
+            platform: darwin/universal
+            asset_name: TameStack-darwin-universal.zip
+            binary_src: build/bin/TameStack.app
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+          check-latest: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Linux Dependencies (GTK3 & WebKit2GTK)
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev libwebkit2gtk-4.1-dev nsis
+
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Install Frontend Dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Sync Windows Metadata Version from AppVersion
+        shell: bash
+        run: |
+          APP_VER="${{ needs.version.outputs.version }}"
+          echo "Updating info.productVersion in wails.json to ${APP_VER}"
+          node -e "
+            const fs = require('fs');
+            const wails = JSON.parse(fs.readFileSync('wails.json', 'utf8'));
+            if (!wails.info) wails.info = {};
+            wails.info.productVersion = '${APP_VER}';
+            fs.writeFileSync('wails.json', JSON.stringify(wails, null, 2));
+          "
+
+      - name: Compile Application with Wails
+        run: |
+          wails build -platform ${{ matrix.platform }}
+
+      - name: Prepare Artifact (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          Copy-Item -Path "${{ matrix.binary_src }}" -Destination "${{ matrix.asset_name }}"
+
+      - name: Prepare Artifact (Linux)
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          cp "${{ matrix.binary_src }}" "${{ matrix.asset_name }}"
+          chmod +x "${{ matrix.asset_name }}"
+
+      - name: Package Artifact (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          cd build/bin
+          zip -r "../../${{ matrix.asset_name }}" TameStack.app
+          cd ../..
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset_name }}
+          path: ${{ matrix.asset_name }}
+          retention-days: 14
+
+  # --------------------------------------------------------------------------
+  # 4. Automated GitHub Release Creation
+  # --------------------------------------------------------------------------
+  release:
+    name: Publish GitHub Release
+    needs: [version, build]
+    if: needs.version.outputs.should_build == 'true' && needs.version.outputs.is_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Display Release Files
+        run: |
+          ls -la release-assets/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.version.outputs.version_tag }}
+          name: "TameStack ${{ needs.version.outputs.version_tag }}"
+          files: release-assets/*
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

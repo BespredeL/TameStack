@@ -1,0 +1,58 @@
+/**
+ * TameStack Unified Design Tokens
+ * Single source of truth for design parameters, surfaces, and functional accents.
+ */
+:root {
+  /* Surfaces & Backgrounds */
+  --surface-bg: #0f172a;           /* App main canvas: slate-900 */
+  --surface-sidebar: #090d16;      /* Deep dark sidebar: surface-950 */
+  --surface-header: rgba(9, 13, 22, 0.7); /* Translucent sticky header */
+  --surface-card: #172033;         /* Card background: surface-850 */
+  --surface-panel: #1e293b;        /* Floating panel/dropdown: surface-800 */
+  --surface-well: rgba(2, 6, 23, 0.75); /* Recessed well / code editor: slate-950/75 */
+
+  /* Borders & Dividers */
+  --border-subtle: rgba(51, 65, 85, 0.4);  /* slate-800/40 */
+  --border-default: #1e293b;                /* slate-800 */
+  --border-hover: #334155;                  /* slate-700 */
+  --border-active: #475569;                 /* slate-600 */
+
+  /* Text Colors */
+  --text-primary: #f8fafc;        /* slate-50 */
+  --text-secondary: #94a3b8;      /* slate-400 */
+  --text-muted: #64748b;          /* slate-500 */
+  --text-inverse: #090d16;
+
+  /* Brand & Accents */
+  --brand-primary: #6366f1;       /* indigo-500 */
+  --brand-primary-hover: #4f46e5; /* indigo-600 */
+  --brand-glow: rgba(99, 102, 241, 0.25);
+
+  /* Functional Status Colors */
+  --color-success: #10b981;       /* emerald-500 */
+  --color-success-bg: rgba(16, 185, 129, 0.1);
+  --color-success-border: rgba(16, 185, 129, 0.25);
+
+  --color-warning: #f59e0b;       /* amber-500 */
+  --color-warning-bg: rgba(245, 158, 11, 0.1);
+  --color-warning-border: rgba(245, 158, 11, 0.25);
+
+  --color-danger: #f43f5e;        /* rose-500 */
+  --color-danger-bg: rgba(244, 63, 94, 0.1);
+  --color-danger-border: rgba(244, 63, 94, 0.25);
+
+  --color-info: #0ea5e9;          /* sky-500 */
+  --color-info-bg: rgba(14, 165, 233, 0.1);
+  --color-info-border: rgba(14, 165, 233, 0.25);
+
+  /* Geometry & Radii */
+  --radius-xs: 0.25rem;   /* 4px  - .rounded     (kbd, micro tags, code snippets) */
+  --radius-sm: 0.5rem;    /* 8px  - .rounded-lg  (small buttons/inputs, inner tab pills, alert banners) */
+  --radius-md: 0.75rem;   /* 12px - .rounded-xl  (standard inputs/buttons, sub-cards, pill bars) */
+  --radius-lg: 1rem;      /* 16px - .rounded-2xl (major cards, tables, modal shells, page toolbars) */
+  --radius-full: 9999px;  /* .rounded-full       (status badges, indicator dots, switches) */
+
+  /* Typography */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}

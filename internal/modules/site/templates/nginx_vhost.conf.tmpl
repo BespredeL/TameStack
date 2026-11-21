@@ -1,0 +1,89 @@
+﻿# TameStack Managed VirtualHost: {{ .Domain }} (Type: {{ .SiteType }}{{ if .PHPVersion }}, PHP: {{ .PHPVersion }}{{ end }})
+server {
+    listen 80;
+    listen [::]:80;
+    server_name {{ .ServerNames }};
+
+{{- if and .SSLEnabled .RedirectHTTPS }}
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl{{ if .HTTP2Supported }} http2{{ end }};
+    listen [::]:443 ssl{{ if .HTTP2Supported }} http2{{ end }};
+    server_name {{ .ServerNames }};
+
+    ssl_certificate /etc/ssl/certs/ssl-cert-snakeoil.pem;
+    ssl_certificate_key /etc/ssl/private/ssl-cert-snakeoil.key;
+{{- end }}
+
+{{- if .EnableLogs }}
+    access_log /var/log/nginx/{{ .Domain }}.access.log;
+    error_log /var/log/nginx/{{ .Domain }}.error.log;
+{{- end }}
+
+{{- if eq .SiteType "reverse_proxy" }}
+    location / {
+        proxy_pass {{ .ProxyPassURL }};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+        proxy_read_timeout 90;
+    }
+{{- else if eq .SiteType "static" }}
+    root {{ .DocumentRoot }};
+    index index.html index.htm;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+
+    location ~ /\.ht {
+        deny all;
+    }
+
+    location ~* \.(jpg|jpeg|png|gif|ico|css|js|woff|woff2|ttf|svg)$ {
+        expires 30d;
+        add_header Cache-Control "public, no-transform";
+    }
+{{- else }}
+    root {{ .DocumentRoot }};
+    index index.php index.html;
+
+    client_max_body_size 64M;
+
+    location / {
+{{- if eq .SiteType "wordpress" }}
+        try_files $uri $uri/ /index.php?$args;
+{{- else }}
+        try_files $uri $uri/ /index.php?$query_string;
+{{- end }}
+    }
+
+    location ~ \.php$ {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass {{ .FPMSocket }};
+        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+        include fastcgi_params;
+        fastcgi_read_timeout 300;
+    }
+
+    location ~ /\.ht {
+        deny all;
+    }
+
+    location ~ /\.(?!well-known).* {
+        deny all;
+    }
+
+    location ~* \.(jpg|jpeg|png|gif|ico|css|js|woff|woff2|ttf|svg)$ {
+        expires 30d;
+        add_header Cache-Control "public, no-transform";
+    }
+{{- end }}
+}

@@ -1,0 +1,46 @@
+﻿# TameStack Managed Apache VirtualHost: {{ .Domain }} (Type: {{ .SiteType }}{{ if .PHPVersion }}, PHP: {{ .PHPVersion }}{{ end }})
+<VirtualHost *:80>
+    ServerName {{ .Domain }}
+{{- if .AliasesString }}
+    ServerAlias {{ .AliasesString }}
+{{- end }}
+
+{{- if and .SSLEnabled .RedirectHTTPS }}
+    Redirect permanent / https://{{ .Domain }}/
+</VirtualHost>
+
+<VirtualHost *:443>
+    ServerName {{ .Domain }}
+{{- if .AliasesString }}
+    ServerAlias {{ .AliasesString }}
+{{- end }}
+    SSLEngine on
+    SSLCertificateFile /etc/ssl/certs/ssl-cert-snakeoil.pem
+    SSLCertificateKeyFile /etc/ssl/private/ssl-cert-snakeoil.key
+{{- end }}
+
+{{- if eq .SiteType "reverse_proxy" }}
+    ProxyPreserveHost On
+    ProxyPass / {{ .ProxyPassURL }}/
+    ProxyPassReverse / {{ .ProxyPassURL }}/
+{{- else }}
+    DocumentRoot {{ .DocumentRoot }}
+
+    <Directory {{ .DocumentRoot }}>
+        Options -Indexes +FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+{{- if .FPMSocket }}
+
+    <FilesMatch \.php$>
+        SetHandler "proxy:unix:{{ .FPMSocket }}|fcgi://localhost"
+    </FilesMatch>
+{{- end }}
+{{- end }}
+
+{{- if .EnableLogs }}
+    ErrorLog ${APACHE_LOG_DIR}/{{ .Domain }}.error.log
+    CustomLog ${APACHE_LOG_DIR}/{{ .Domain }}.access.log combined
+{{- end }}
+</VirtualHost>

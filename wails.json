@@ -1,0 +1,19 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "TameStack",
+  "outputfilename": "TameStack",
+  "frontend:install": "npm install",
+  "frontend:build": "npm run build",
+  "frontend:dev:watcher": "npm run dev",
+  "frontend:dev:serverUrl": "auto",
+  "author": {
+    "name": "Aleksandr Kireev",
+    "email": "hello@bespredel.name"
+  },
+  "info": {
+    "productName": "TameStack",
+    "productVersion": "1.13.0",
+    "companyName": "Aleksandr Kireev",
+    "copyright": "Copyright © 2026 Aleksandr Kireev"
+  }
+}

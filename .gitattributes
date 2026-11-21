@@ -1,0 +1,2 @@
+# Embedded shell scripts run on remote Linux hosts; CRLF breaks them.
+*.sh text eol=lf
