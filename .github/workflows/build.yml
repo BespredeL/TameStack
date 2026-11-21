@@ -70,12 +70,16 @@ jobs:
             # A version tag explicitly requests a build.
             SHOULD_BUILD="true"
           elif [[ "$EVENT_NAME" == "push" && -n "$BASE_SHA" && "$BASE_SHA" != "0000000000000000000000000000000000000000" ]]; then
-            # For branch pushes, compare AppVersion with the previous commit.
+            # For branch pushes, compare AppVersion with the previous commit,
+            # or check if the tag for the current version hasn't been created yet.
             PREVIOUS_VER="$(git show "${BASE_SHA}:main.go" 2>/dev/null \
               | sed -n 's/^var AppVersion *= *"\([^"]*\)".*/\1/p' \
               | head -n 1 || true)"
 
             if [[ "$VER" != "$PREVIOUS_VER" ]]; then
+              SHOULD_BUILD="true"
+            elif ! git rev-parse "refs/tags/v${VER}" >/dev/null 2>&1; then
+              echo "Tag v${VER} does not exist yet. Proceeding with build."
               SHOULD_BUILD="true"
             fi
           elif [[ "$EVENT_NAME" == "push" ]]; then
@@ -191,6 +195,10 @@ jobs:
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
 
+      - name: Set up NSIS (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: nsis-dev/setup-nsis@v1
+
       - name: Install Linux Dependencies (GTK3 & WebKit2GTK)
         if: matrix.os == 'ubuntu-22.04'
         run: |
@@ -226,6 +234,7 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
+          Get-ChildItem -Path build/bin
           Copy-Item -Path "${{ matrix.binary_src }}" -Destination "${{ matrix.asset_name }}"
           Copy-Item -Path "${{ matrix.binary_src }}" -Destination "TameStack-windows-amd64-portable.exe"
           Copy-Item -Path "build/bin/TameStack-amd64-installer.exe" -Destination "TameStack-windows-amd64-installer.exe"
