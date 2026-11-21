@@ -15,6 +15,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestCompareVersions(t *testing.T) {
@@ -433,5 +434,99 @@ func TestInstallMissingDigestAborts(t *testing.T) {
 	got, _ := os.ReadFile(target)
 	if string(got) != "OLD-EXE" {
 		t.Fatalf("target modified: %q", got)
+	}
+}
+
+func TestCheckUsesCache(t *testing.T) {
+	calls := 0
+	mux := http.NewServeMux()
+	mux.HandleFunc("/repos/test/repo/releases/latest", func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(releaseJSON(t, r, "v2.0.0", []assetFixture{{42, platformAsset(), "/download/42"}}))
+	})
+	s := fixtureService(t, mux, "1.0.0")
+
+	res1, err := s.Check(context.Background())
+	if err != nil || !res1.Available {
+		t.Fatalf("first check failed: %v", err)
+	}
+	if calls != 1 {
+		t.Fatalf("expected 1 call, got %d", calls)
+	}
+
+	// Second check should hit the in-memory cache without calling backend
+	res2, err := s.Check(context.Background())
+	if err != nil || !res2.Available {
+		t.Fatalf("second check failed: %v", err)
+	}
+	if calls != 1 {
+		t.Fatalf("expected call count to remain 1 due to cache, got %d", calls)
+	}
+}
+
+func TestCheckETag304(t *testing.T) {
+	mux := http.NewServeMux()
+	etagVal := `W/"abc-123"`
+	calls := 0
+	mux.HandleFunc("/repos/test/repo/releases/latest", func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		if r.Header.Get("If-None-Match") == etagVal {
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
+		w.Header().Set("ETag", etagVal)
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(releaseJSON(t, r, "v2.0.0", []assetFixture{{42, platformAsset(), "/download/42"}}))
+	})
+	s := fixtureService(t, mux, "1.0.0")
+
+	res1, err := s.Check(context.Background())
+	if err != nil || !res1.Available {
+		t.Fatalf("first check failed: %v", err)
+	}
+
+	// Expire cache time artificially to test ETag
+	s.mu.Lock()
+	s.cachedAt = s.cachedAt.Add(-3 * time.Minute)
+	s.mu.Unlock()
+
+	res2, err := s.Check(context.Background())
+	if err != nil || !res2.Available {
+		t.Fatalf("second check with 304 failed: %v", err)
+	}
+	if calls != 2 {
+		t.Fatalf("expected 2 calls, got %d", calls)
+	}
+}
+
+func TestCheckWebRedirectFallback(t *testing.T) {
+	mux := http.NewServeMux()
+	// API rate limit returns 403
+	mux.HandleFunc("/repos/test/repo/releases/latest", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+	})
+	// Web redirect fallback returns 302
+	mux.HandleFunc("/test/repo/releases/latest", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Location", "/test/repo/releases/tag/v3.0.0")
+		w.WriteHeader(http.StatusFound)
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+
+	s := NewService("test/repo", "1.0.0")
+	s.baseURL = srv.URL
+	s.webBaseURL = srv.URL
+	s.client = srv.Client()
+
+	res, err := s.Check(context.Background())
+	if err != nil {
+		t.Fatalf("expected fallback to succeed, got %v", err)
+	}
+	if !res.Available || res.LatestVersion != "3.0.0" {
+		t.Fatalf("expected update to 3.0.0, got %+v", res)
+	}
+	if !res.AssetFound {
+		t.Fatalf("expected synthetic asset to be found, got false")
 	}
 }

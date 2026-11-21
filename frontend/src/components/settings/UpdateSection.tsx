@@ -128,9 +128,18 @@ export const UpdateSection: React.FC = () => {
       </div>
 
       {error && (
-        <div className="flex items-start gap-2 p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs">
-          <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
-          <span className="min-w-0 break-words">{t('settings.updateError', { error })}</span>
+        <div className="flex items-start justify-between gap-3 p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs">
+          <div className="flex items-start gap-2 min-w-0">
+            <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
+            <span className="min-w-0 break-words">{t('settings.updateError', { error })}</span>
+          </div>
+          <button
+            onClick={() => BrowserOpenURL('https://github.com/BespredeL/TameStack/releases')}
+            className="flex items-center gap-1.5 px-2.5 py-1 shrink-0 rounded-md bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 transition text-[11px]"
+          >
+            <ExternalLink className="w-3 h-3" />
+            GitHub Releases
+          </button>
         </div>
       )}
 

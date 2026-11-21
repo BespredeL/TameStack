@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -71,20 +72,27 @@ type Progress struct {
 // Service checks the release feed and installs updates over the running
 // binary. Fields with lowercase names are test seams.
 type Service struct {
-	repo    string
-	current string
-	baseURL string
-	client  *http.Client
+	repo       string
+	current    string
+	baseURL    string
+	webBaseURL string // defaults to "https://github.com"
+	client     *http.Client
 
 	target string // binary to replace; defaults to os.Executable()
+
+	mu           sync.Mutex
+	cachedResult *CheckResult
+	cachedAt     time.Time
+	cachedETag   string
 }
 
 func NewService(repo, currentVersion string) *Service {
 	return &Service{
-		repo:    repo,
-		current: currentVersion,
-		baseURL: apiBase,
-		client:  &http.Client{},
+		repo:       repo,
+		current:    currentVersion,
+		baseURL:    apiBase,
+		webBaseURL: "https://github.com",
+		client:     &http.Client{},
 	}
 }
 
@@ -100,7 +108,18 @@ func (s *Service) newRequest(ctx context.Context, url string) (*http.Request, er
 }
 
 // Check fetches the latest release and compares it with the running version.
+// It caches results for 2 minutes and uses ETag conditional requests as well
+// as web-redirect fallback to avoid GitHub API rate limits.
 func (s *Service) Check(ctx context.Context) (*CheckResult, error) {
+	s.mu.Lock()
+	if s.cachedResult != nil && time.Since(s.cachedAt) < 2*time.Minute {
+		res := s.cachedResult
+		s.mu.Unlock()
+		return res, nil
+	}
+	etag := s.cachedETag
+	s.mu.Unlock()
+
 	url := fmt.Sprintf("%s/repos/%s/releases/latest", s.baseURL, s.repo)
 	reqCtx, cancel := context.WithTimeout(ctx, checkTimeout)
 	defer cancel()
@@ -109,20 +128,64 @@ func (s *Service) Check(ctx context.Context) (*CheckResult, error) {
 	if err != nil {
 		return nil, err
 	}
+	if etag != "" {
+		req.Header.Set("If-None-Match", etag)
+	}
+
 	resp, err := s.client.Do(req)
 	if err != nil {
+		s.mu.Lock()
+		if s.cachedResult != nil {
+			cached := s.cachedResult
+			s.mu.Unlock()
+			return cached, nil
+		}
+		s.mu.Unlock()
 		return nil, fmt.Errorf("не удалось связаться с GitHub: %w", err)
 	}
 	defer resp.Body.Close()
 
-	switch {
-	case resp.StatusCode == http.StatusForbidden, resp.StatusCode == http.StatusTooManyRequests:
+	if resp.StatusCode == http.StatusNotModified {
+		s.mu.Lock()
+		if s.cachedResult != nil {
+			s.cachedAt = time.Now()
+			res := s.cachedResult
+			s.mu.Unlock()
+			return res, nil
+		}
+		s.mu.Unlock()
+	}
+
+	if resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusTooManyRequests {
+		s.mu.Lock()
+		if s.cachedResult != nil {
+			res := s.cachedResult
+			s.mu.Unlock()
+			return res, nil
+		}
+		s.mu.Unlock()
+
+		// Fallback to web redirect (releases/latest) when API rate limit is exceeded
+		res, fbErr := s.checkViaWebRedirect(ctx)
+		if fbErr == nil {
+			s.mu.Lock()
+			s.cachedResult = res
+			s.cachedAt = time.Now()
+			s.mu.Unlock()
+			return res, nil
+		}
+
 		return nil, fmt.Errorf("превышен лимит обращений к GitHub, попробуйте позже")
-	case resp.StatusCode == http.StatusNotFound:
+	}
+
+	if resp.StatusCode == http.StatusNotFound {
 		return nil, fmt.Errorf("релизы не найдены (репозиторий %s недоступен?)", s.repo)
-	case resp.StatusCode != http.StatusOK:
+	}
+	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("GitHub вернул статус %d", resp.StatusCode)
 	}
+
+	newETag := resp.Header.Get("ETag")
 
 	var release Release
 	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
@@ -144,7 +207,98 @@ func (s *Service) Check(ctx context.Context) (*CheckResult, error) {
 	if s.pickAsset(&release) != nil {
 		result.AssetFound = true
 	}
+
+	s.mu.Lock()
+	s.cachedResult = result
+	s.cachedAt = time.Now()
+	if newETag != "" {
+		s.cachedETag = newETag
+	}
+	s.mu.Unlock()
+
 	return result, nil
+}
+
+// checkViaWebRedirect resolves the latest tag via a public web redirect without hitting API quotas.
+func (s *Service) checkViaWebRedirect(ctx context.Context) (*CheckResult, error) {
+	webBase := s.webBaseURL
+	if webBase == "" {
+		webBase = "https://github.com"
+	}
+	webURL := fmt.Sprintf("%s/%s/releases/latest", webBase, s.repo)
+	reqCtx, cancel := context.WithTimeout(ctx, checkTimeout)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(reqCtx, http.MethodHead, webURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", userAgent)
+
+	noRedirectClient := &http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+		Timeout: checkTimeout,
+	}
+
+	resp, err := noRedirectClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusFound && resp.StatusCode != http.StatusMovedPermanently && resp.StatusCode != http.StatusSeeOther {
+		return nil, fmt.Errorf("unexpected status from release page: %d", resp.StatusCode)
+	}
+
+	loc := resp.Header.Get("Location")
+	if loc == "" {
+		return nil, fmt.Errorf("missing Location header in redirect")
+	}
+
+	parts := strings.Split(strings.TrimRight(loc, "/"), "/")
+	tag := parts[len(parts)-1]
+	if tag == "" || tag == "latest" {
+		return nil, fmt.Errorf("could not extract release tag from location %q", loc)
+	}
+
+	latest := strings.TrimPrefix(strings.TrimSpace(tag), "v")
+	cmp, ok := compareVersions(latest, s.current)
+	if !ok {
+		return nil, fmt.Errorf("некорректный номер версии релиза: %q", tag)
+	}
+
+	release := &Release{
+		TagName: tag,
+		Name:    "TameStack " + tag,
+		HTMLURL: loc,
+		Assets:  s.buildSyntheticAssets(tag, webBase),
+	}
+
+	result := &CheckResult{
+		CurrentVersion: s.current,
+		LatestVersion:  latest,
+		Available:      cmp > 0,
+		Release:        release,
+	}
+	if s.pickAsset(release) != nil {
+		result.AssetFound = true
+	}
+	return result, nil
+}
+
+func (s *Service) buildSyntheticAssets(tag, webBase string) []Asset {
+	candidates := candidateAssets(runtime.GOOS, runtime.GOARCH)
+	assets := make([]Asset, 0, len(candidates))
+	for _, name := range candidates {
+		assets = append(assets, Asset{
+			ID:          0,
+			Name:        name,
+			DownloadURL: fmt.Sprintf("%s/%s/releases/download/%s/%s", webBase, s.repo, tag, name),
+		})
+	}
+	return assets
 }
 
 // candidateAssets returns the release asset names carrying the binary for the
@@ -361,6 +515,9 @@ func (s *Service) download(ctx context.Context, url, destPath string, onBytes fu
 // for the asset. A missing digest is a hard failure: an unverified binary is
 // never swapped in.
 func (s *Service) verifyDigest(ctx context.Context, asset *Asset, archivePath string) error {
+	if asset.ID <= 0 {
+		return fmt.Errorf("контрольная сумма недоступна через GitHub API; скачайте обновление по кнопке «Открыть страницу релиза»")
+	}
 	url := fmt.Sprintf("%s/repos/%s/releases/assets/%d", s.baseURL, s.repo, asset.ID)
 	reqCtx, cancel := context.WithTimeout(ctx, checkTimeout)
 	defer cancel()
