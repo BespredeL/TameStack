@@ -318,6 +318,10 @@ export function DeleteFileExclusion(arg1) {
   return window['go']['main']['App']['DeleteFileExclusion'](arg1);
 }
 
+export function DeleteFileSecuritySignature(arg1) {
+  return window['go']['main']['App']['DeleteFileSecuritySignature'](arg1);
+}
+
 export function DeleteFileSnapshot(arg1) {
   return window['go']['main']['App']['DeleteFileSnapshot'](arg1);
 }
@@ -642,6 +646,10 @@ export function ListFileExclusions(arg1) {
   return window['go']['main']['App']['ListFileExclusions'](arg1);
 }
 
+export function ListFileSecuritySignatures(arg1) {
+  return window['go']['main']['App']['ListFileSecuritySignatures'](arg1);
+}
+
 export function ListFileSnapshots(arg1) {
   return window['go']['main']['App']['ListFileSnapshots'](arg1);
 }
@@ -874,6 +882,10 @@ export function SaveFail2banJail(arg1) {
   return window['go']['main']['App']['SaveFail2banJail'](arg1);
 }
 
+export function SaveFileSecuritySignature(arg1) {
+  return window['go']['main']['App']['SaveFileSecuritySignature'](arg1);
+}
+
 export function SavePHPIni(arg1, arg2, arg3) {
   return window['go']['main']['App']['SavePHPIni'](arg1, arg2, arg3);
 }
@@ -968,6 +980,10 @@ export function ToggleCronJob(arg1) {
 
 export function ToggleFail2banJail(arg1) {
   return window['go']['main']['App']['ToggleFail2banJail'](arg1);
+}
+
+export function ToggleFileSecuritySignature(arg1, arg2) {
+  return window['go']['main']['App']['ToggleFileSecuritySignature'](arg1, arg2);
 }
 
 export function ToggleFirewall(arg1, arg2) {

@@ -1,4 +1,4 @@
-﻿package security
+package security
 
 import (
 	"testing"
@@ -47,6 +47,8 @@ func TestIsPathExcluded(t *testing.T) {
 		{Pattern: "*/cache/*"},
 		{Pattern: "*.log"},
 		{Pattern: "/var/www/site/vendor/*"},
+		{Pattern: "/var/www/site/storage/app/*"},
+		{Pattern: "/var/www/site/public/robots.txt"},
 	}
 
 	if !isPathExcluded("/var/www/site/storage/cache/data.tmp", exclusions) {
@@ -54,6 +56,12 @@ func TestIsPathExcluded(t *testing.T) {
 	}
 	if !isPathExcluded("/var/www/site/debug.log", exclusions) {
 		t.Fatal("expected true for *.log exclusion")
+	}
+	if !isPathExcluded("/var/www/site/storage/app/subfolder/file.json", exclusions) {
+		t.Fatal("expected true for nested path inside /* directory wildcard")
+	}
+	if !isPathExcluded("/var/www/site/public/robots.txt", exclusions) {
+		t.Fatal("expected true for exact file match")
 	}
 	if isPathExcluded("/var/www/site/public/index.php", exclusions) {
 		t.Fatal("expected false for index.php")
@@ -69,5 +77,27 @@ func TestFormatByteSize(t *testing.T) {
 	}
 	if s := formatByteSize(10485760); s != "10.0 MB" {
 		t.Fatalf("expected '10.0 MB', got '%s'", s)
+	}
+}
+
+func TestCustomSignatureValidation(t *testing.T) {
+	svc := &Service{}
+
+	// Missing name
+	_, err := svc.SaveFileSignature(nil, FileSecuritySignature{Pattern: "test"})
+	if err == nil {
+		t.Fatal("expected error on empty name")
+	}
+
+	// Missing pattern
+	_, err = svc.SaveFileSignature(nil, FileSecuritySignature{Name: "Rule 1", Pattern: ""})
+	if err == nil {
+		t.Fatal("expected error on empty pattern")
+	}
+
+	// Invalid regex
+	_, err = svc.SaveFileSignature(nil, FileSecuritySignature{Name: "Rule 1", Pattern: "[a-z"})
+	if err == nil {
+		t.Fatal("expected error on unclosed regex bracket")
 	}
 }

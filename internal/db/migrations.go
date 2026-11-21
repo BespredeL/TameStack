@@ -620,6 +620,32 @@ func getMigrationsList() []Migration {
 				return nil
 			},
 		},
+		{
+			Version: 12,
+			Name:    "012_file_security_signatures",
+			Up: func(tx *sql.Tx) error {
+				queries := []string{
+					`CREATE TABLE IF NOT EXISTS file_security_signatures (
+						id TEXT PRIMARY KEY,
+						server_id TEXT NOT NULL DEFAULT '',
+						name TEXT NOT NULL,
+						pattern TEXT NOT NULL,
+						threat_level TEXT NOT NULL DEFAULT 'malicious',
+						description TEXT NOT NULL DEFAULT '',
+						enabled INTEGER NOT NULL DEFAULT 1,
+						created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+						updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+					);`,
+					`CREATE INDEX IF NOT EXISTS idx_file_security_signatures_server ON file_security_signatures(server_id);`,
+				}
+				for _, q := range queries {
+					if _, err := tx.Exec(q); err != nil {
+						return fmt.Errorf("failed executing query in migration 12: %w", err)
+					}
+				}
+				return nil
+			},
+		},
 	}
 }
 

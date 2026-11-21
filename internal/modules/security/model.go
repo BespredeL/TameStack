@@ -229,6 +229,19 @@ type FileSecurityExclusion struct {
 	CreatedAt string `json:"created_at"`
 }
 
+// FileSecuritySignature represents a user-configured or custom heuristic detection signature.
+type FileSecuritySignature struct {
+	ID          string `json:"id"`
+	ServerID    string `json:"server_id"`
+	Name        string `json:"name"`
+	Pattern     string `json:"pattern"`
+	ThreatLevel string `json:"threat_level"` // "malicious", "suspicious"
+	Description string `json:"description"`
+	Enabled     bool   `json:"enabled"`
+	CreatedAt   string `json:"created_at"`
+	UpdatedAt   string `json:"updated_at"`
+}
+
 // FileSecuritySnapshot stores baseline snapshot metadata.
 type FileSecuritySnapshot struct {
 	ID             string `json:"id"`

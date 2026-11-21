@@ -3865,6 +3865,34 @@ export namespace security {
 	        this.created_at = source["created_at"];
 	    }
 	}
+	export class FileSecuritySignature {
+	    id: string;
+	    server_id: string;
+	    name: string;
+	    pattern: string;
+	    threat_level: string;
+	    description: string;
+	    enabled: boolean;
+	    created_at: string;
+	    updated_at: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new FileSecuritySignature(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.server_id = source["server_id"];
+	        this.name = source["name"];
+	        this.pattern = source["pattern"];
+	        this.threat_level = source["threat_level"];
+	        this.description = source["description"];
+	        this.enabled = source["enabled"];
+	        this.created_at = source["created_at"];
+	        this.updated_at = source["updated_at"];
+	    }
+	}
 	export class FileSecuritySnapshot {
 	    id: string;
 	    server_id: string;

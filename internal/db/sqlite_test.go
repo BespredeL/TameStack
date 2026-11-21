@@ -1,4 +1,4 @@
-﻿package db
+package db
 
 import (
 	"context"
@@ -110,4 +110,63 @@ func TestSQLiteCRUD(t *testing.T) {
 	}
 
 	_ = database.Close()
+}
+
+func TestFileSecuritySignaturesCRUD(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test_signatures.db")
+
+	database, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("failed to open database: %v", err)
+	}
+	defer database.Close()
+
+	ctx := context.Background()
+
+	sig := &FileSecuritySignatureRecord{
+		ID:          "sig-1",
+		ServerID:    "",
+		Name:        "Crypto Miner",
+		Pattern:     "(stratum\\+tcp|xmrig)",
+		ThreatLevel: "malicious",
+		Description: "Detects miner pools and binaries",
+		Enabled:     true,
+	}
+
+	if err := database.SaveFileSecuritySignature(ctx, sig); err != nil {
+		t.Fatalf("failed to save signature: %v", err)
+	}
+
+	list, err := database.ListFileSecuritySignatures(ctx, "srv-1")
+	if err != nil {
+		t.Fatalf("failed to list signatures: %v", err)
+	}
+	if len(list) != 1 || list[0].Name != "Crypto Miner" || !list[0].Enabled {
+		t.Fatalf("unexpected signature list: %+v", list)
+	}
+
+	if err := database.ToggleFileSecuritySignature(ctx, "sig-1", false); err != nil {
+		t.Fatalf("failed to toggle signature: %v", err)
+	}
+
+	got, err := database.GetFileSecuritySignature(ctx, "sig-1")
+	if err != nil {
+		t.Fatalf("failed to get signature: %v", err)
+	}
+	if got.Enabled {
+		t.Fatal("expected signature to be disabled after toggle")
+	}
+
+	if err := database.DeleteFileSecuritySignature(ctx, "sig-1"); err != nil {
+		t.Fatalf("failed to delete signature: %v", err)
+	}
+
+	listAfter, err := database.ListFileSecuritySignatures(ctx, "srv-1")
+	if err != nil {
+		t.Fatalf("failed to list signatures after delete: %v", err)
+	}
+	if len(listAfter) != 0 {
+		t.Fatalf("expected 0 signatures after delete, got %d", len(listAfter))
+	}
 }

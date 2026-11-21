@@ -1,4 +1,4 @@
-﻿package main
+package main
 
 import (
 	"tamestack/internal/db"
@@ -199,4 +199,31 @@ func (a *App) CompareFileSnapshot(snapshotID string) (*security.SnapshotDiffResu
 	return withLock(a, func() (*security.SnapshotDiffResult, error) {
 		return a.securityService.CompareWithSnapshot(a.ctx, snapshotID)
 	})
+}
+
+func (a *App) ListFileSecuritySignatures(serverID string) ([]security.FileSecuritySignature, error) {
+	return withLock(a, func() ([]security.FileSecuritySignature, error) {
+		return a.securityService.ListFileSignatures(a.ctx, serverID)
+	})
+}
+
+func (a *App) SaveFileSecuritySignature(sig security.FileSecuritySignature) (*security.FileSecuritySignature, error) {
+	if err := a.requireUnlocked(); err != nil {
+		return nil, err
+	}
+	return a.securityService.SaveFileSignature(a.ctx, sig)
+}
+
+func (a *App) DeleteFileSecuritySignature(id string) error {
+	if err := a.requireUnlocked(); err != nil {
+		return err
+	}
+	return a.securityService.DeleteFileSignature(a.ctx, id)
+}
+
+func (a *App) ToggleFileSecuritySignature(id string, enabled bool) error {
+	if err := a.requireUnlocked(); err != nil {
+		return err
+	}
+	return a.securityService.ToggleFileSignature(a.ctx, id, enabled)
 }

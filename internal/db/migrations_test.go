@@ -29,8 +29,8 @@ func TestMigrationsLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get applied migrations: %v", err)
 	}
-	if len(migrations) != 11 {
-		t.Errorf("Expected 11 applied migrations, got: %d", len(migrations))
+	if len(migrations) != 12 {
+		t.Errorf("Expected 12 applied migrations, got: %d", len(migrations))
 	}
 
 	// Test vault settings.
@@ -63,8 +63,8 @@ func TestMigrationsLifecycle(t *testing.T) {
 	}
 
 	migrations2, err := database2.GetAppliedMigrations()
-	if err != nil || len(migrations2) != 11 {
-		t.Errorf("Expected 11 migrations on re-open, got: %d", len(migrations2))
+	if err != nil || len(migrations2) != 12 {
+		t.Errorf("Expected 12 migrations on re-open, got: %d", len(migrations2))
 	}
 }
 

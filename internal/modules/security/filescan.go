@@ -1,4 +1,4 @@
-﻿package security
+package security
 
 import (
 	"bufio"
@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -192,6 +193,16 @@ find "$TARGET" -xdev \( -path '*/vendor/*' -prune -o -path '*/node_modules/*' -p
 			}
 		}
 
+		// Load active custom heuristic signatures.
+		var activeCustomSignatures []*db.FileSecuritySignatureRecord
+		if dbSigs, err := s.database.ListFileSecuritySignatures(ctx, req.ServerID); err == nil {
+			for _, cs := range dbSigs {
+				if cs.Enabled && strings.TrimSpace(cs.Pattern) != "" {
+					activeCustomSignatures = append(activeCustomSignatures, cs)
+				}
+			}
+		}
+
 		// Run targeted grep in batches of 100 files.
 		if len(grepCandidates) > 0 {
 			batchSize := 100
@@ -232,6 +243,41 @@ find "$TARGET" -xdev \( -path '*/vendor/*' -prune -o -path '*/node_modules/*' -p
 								f.Reasons = appendUnique(f.Reasons, fmt.Sprintf("Обнаружена вредоносная сигнатура (строка %s)", lineNum))
 								if f.Snippet == "" {
 									f.Snippet = snippet
+								}
+							}
+						}
+					}
+				}
+
+				for _, cs := range activeCustomSignatures {
+					csGrepCmd := fmt.Sprintf(
+						"grep -i -E -n -H -m 2 %s %s 2>/dev/null",
+						ssh.ShellEscape(cs.Pattern),
+						strings.Join(escapedPaths, " "),
+					)
+					csOut, _ := s.execCmd(ctx, client, csGrepCmd)
+					if csOut != "" {
+						csScanner := bufio.NewScanner(strings.NewReader(csOut))
+						for csScanner.Scan() {
+							csLine := csScanner.Text()
+							parts := strings.SplitN(csLine, ":", 3)
+							if len(parts) >= 3 {
+								matchedPath := parts[0]
+								lineNum := parts[1]
+								snippet := strings.TrimSpace(parts[2])
+								if len(snippet) > 160 {
+									snippet = snippet[:160] + "..."
+								}
+								if f, ok := candidatesMap[matchedPath]; ok {
+									if cs.ThreatLevel == string(ThreatMalicious) {
+										f.ThreatLevel = string(ThreatMalicious)
+									} else if f.ThreatLevel != string(ThreatMalicious) {
+										f.ThreatLevel = string(ThreatSuspicious)
+									}
+									f.Reasons = appendUnique(f.Reasons, fmt.Sprintf("Сигнатура \"%s\" (строка %s)", cs.Name, lineNum))
+									if f.Snippet == "" {
+										f.Snippet = snippet
+									}
 								}
 							}
 						}
@@ -384,6 +430,87 @@ func (s *Service) DeleteFileExclusion(ctx context.Context, exclusionID string) e
 	return s.database.DeleteFileSecurityExclusion(ctx, exclusionID)
 }
 
+func (s *Service) ListFileSignatures(ctx context.Context, serverID string) ([]FileSecuritySignature, error) {
+	records, err := s.database.ListFileSecuritySignatures(ctx, serverID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]FileSecuritySignature, 0, len(records))
+	for _, r := range records {
+		out = append(out, FileSecuritySignature{
+			ID:          r.ID,
+			ServerID:    r.ServerID,
+			Name:        r.Name,
+			Pattern:     r.Pattern,
+			ThreatLevel: r.ThreatLevel,
+			Description: r.Description,
+			Enabled:     r.Enabled,
+			CreatedAt:   r.CreatedAt.Format("2006-01-02 15:04"),
+			UpdatedAt:   r.UpdatedAt.Format("2006-01-02 15:04"),
+		})
+	}
+	return out, nil
+}
+
+func (s *Service) SaveFileSignature(ctx context.Context, sig FileSecuritySignature) (*FileSecuritySignature, error) {
+	name := strings.TrimSpace(sig.Name)
+	if name == "" {
+		return nil, fmt.Errorf("название сигнатуры не может быть пустым")
+	}
+	pattern := strings.TrimSpace(sig.Pattern)
+	if pattern == "" {
+		return nil, fmt.Errorf("регулярное выражение сигнатуры не может быть пустым")
+	}
+	if _, err := regexp.Compile(pattern); err != nil {
+		return nil, fmt.Errorf("некорректное регулярное выражение: %w", err)
+	}
+	threatLevel := sig.ThreatLevel
+	if threatLevel != string(ThreatSuspicious) && threatLevel != string(ThreatMalicious) {
+		threatLevel = string(ThreatMalicious)
+	}
+	id := strings.TrimSpace(sig.ID)
+	if id == "" {
+		id = uuid.New().String()
+	}
+	rec := &db.FileSecuritySignatureRecord{
+		ID:          id,
+		ServerID:    strings.TrimSpace(sig.ServerID),
+		Name:        name,
+		Pattern:     pattern,
+		ThreatLevel: threatLevel,
+		Description: strings.TrimSpace(sig.Description),
+		Enabled:     sig.Enabled,
+	}
+	if err := s.database.SaveFileSecuritySignature(ctx, rec); err != nil {
+		return nil, err
+	}
+	return &FileSecuritySignature{
+		ID:          rec.ID,
+		ServerID:    rec.ServerID,
+		Name:        rec.Name,
+		Pattern:     rec.Pattern,
+		ThreatLevel: rec.ThreatLevel,
+		Description: rec.Description,
+		Enabled:     rec.Enabled,
+		CreatedAt:   rec.CreatedAt.Format("2006-01-02 15:04"),
+		UpdatedAt:   rec.UpdatedAt.Format("2006-01-02 15:04"),
+	}, nil
+}
+
+func (s *Service) DeleteFileSignature(ctx context.Context, id string) error {
+	if strings.TrimSpace(id) == "" {
+		return fmt.Errorf("ID сигнатуры не может быть пустым")
+	}
+	return s.database.DeleteFileSecuritySignature(ctx, id)
+}
+
+func (s *Service) ToggleFileSignature(ctx context.Context, id string, enabled bool) error {
+	if strings.TrimSpace(id) == "" {
+		return fmt.Errorf("ID сигнатуры не может быть пустым")
+	}
+	return s.database.ToggleFileSecuritySignature(ctx, id, enabled)
+}
+
 func (s *Service) CreateFileSnapshot(ctx context.Context, serverID, siteID, name, basePath string) (*FileSecuritySnapshot, error) {
 	cleanPath := path.Clean(strings.TrimSpace(basePath))
 	if cleanPath == "" || cleanPath == "." || !strings.HasPrefix(cleanPath, "/") || cleanPath == "/" {
@@ -419,7 +546,7 @@ if [ ! -d "$TARGET" ]; then
 fi
 if command -v python3 >/dev/null 2>&1; then
   python3 -c "
-import os, sys, hashlib, stat, json
+import os, sys, hashlib, stat, json, fnmatch
 
 base = sys.argv[1]
 try:
@@ -436,7 +563,7 @@ for root, dirs, files in os.walk(base, topdown=True):
             continue
         full_d = os.path.join(root, d)
         rel_d = os.path.relpath(full_d, base).replace('\\\\', '/')
-        if any(ex in full_d or ex == rel_d or ex == d for ex in ex_list):
+        if any(ex in full_d or ex == rel_d or ex == d or fnmatch.fnmatch(full_d, ex) or fnmatch.fnmatch(d, ex) for ex in ex_list):
             continue
         new_dirs.append(d)
     dirs[:] = new_dirs
@@ -444,7 +571,7 @@ for root, dirs, files in os.walk(base, topdown=True):
     for f in files:
         full_f = os.path.join(root, f)
         rel_f = os.path.relpath(full_f, base).replace('\\\\', '/')
-        if any(ex in full_f or ex == rel_f or ex == f for ex in ex_list):
+        if any(ex in full_f or ex == rel_f or ex == f or fnmatch.fnmatch(full_f, ex) or fnmatch.fnmatch(f, ex) for ex in ex_list):
             continue
         try:
             st = os.stat(full_f)
@@ -610,7 +737,7 @@ if [ ! -d "$TARGET" ]; then
 fi
 if command -v python3 >/dev/null 2>&1; then
   python3 -c "
-import os, sys, hashlib, stat, pwd, grp, json
+import os, sys, hashlib, stat, pwd, grp, json, fnmatch
 
 base = sys.argv[1]
 try:
@@ -627,7 +754,7 @@ for root, dirs, files in os.walk(base, topdown=True):
             continue
         full_d = os.path.join(root, d)
         rel_d = os.path.relpath(full_d, base).replace('\\\\', '/')
-        if any(ex in full_d or ex == rel_d or ex == d for ex in ex_list):
+        if any(ex in full_d or ex == rel_d or ex == d or fnmatch.fnmatch(full_d, ex) or fnmatch.fnmatch(d, ex) for ex in ex_list):
             continue
         new_dirs.append(d)
     dirs[:] = new_dirs
@@ -635,7 +762,7 @@ for root, dirs, files in os.walk(base, topdown=True):
     for f in files:
         full_f = os.path.join(root, f)
         rel_f = os.path.relpath(full_f, base).replace('\\\\', '/')
-        if any(ex in full_f or ex == rel_f or ex == f for ex in ex_list):
+        if any(ex in full_f or ex == rel_f or ex == f or fnmatch.fnmatch(full_f, ex) or fnmatch.fnmatch(f, ex) for ex in ex_list):
             continue
         try:
             st = os.stat(full_f)
@@ -768,6 +895,15 @@ fi
 			pathMap[f.Path] = f
 		}
 
+		var activeCustomSignatures []*db.FileSecuritySignatureRecord
+		if dbSigs, err := s.database.ListFileSecuritySignatures(ctx, snapshot.ServerID); err == nil {
+			for _, cs := range dbSigs {
+				if cs.Enabled && strings.TrimSpace(cs.Pattern) != "" {
+					activeCustomSignatures = append(activeCustomSignatures, cs)
+				}
+			}
+		}
+
 		if len(grepPaths) > 0 && len(grepPaths) <= 200 {
 			escapedPaths := make([]string, len(grepPaths))
 			for idx, p := range grepPaths {
@@ -795,6 +931,40 @@ fi
 							f.Reasons = appendUnique(f.Reasons, fmt.Sprintf("Обнаружена вредоносная сигнатура (строка %s)", lineNum))
 							if f.Snippet == "" {
 								f.Snippet = snippet
+							}
+						}
+					}
+				}
+			}
+
+			for _, cs := range activeCustomSignatures {
+				csGrepCmd := fmt.Sprintf(
+					"grep -i -E -n -H -m 2 %s %s 2>/dev/null",
+					ssh.ShellEscape(cs.Pattern),
+					strings.Join(escapedPaths, " "),
+				)
+				csOut, _ := s.execCmd(ctx, client, csGrepCmd)
+				if csOut != "" {
+					csScanner := bufio.NewScanner(strings.NewReader(csOut))
+					for csScanner.Scan() {
+						parts := strings.SplitN(csScanner.Text(), ":", 3)
+						if len(parts) >= 3 {
+							matchedPath := parts[0]
+							lineNum := parts[1]
+							snippet := strings.TrimSpace(parts[2])
+							if len(snippet) > 160 {
+								snippet = snippet[:160] + "..."
+							}
+							if f, ok := pathMap[matchedPath]; ok {
+								if cs.ThreatLevel == string(ThreatMalicious) {
+									f.ThreatLevel = string(ThreatMalicious)
+								} else if f.ThreatLevel != string(ThreatMalicious) {
+									f.ThreatLevel = string(ThreatSuspicious)
+								}
+								f.Reasons = appendUnique(f.Reasons, fmt.Sprintf("Сигнатура \"%s\" (строка %s)", cs.Name, lineNum))
+								if f.Snippet == "" {
+									f.Snippet = snippet
+								}
 							}
 						}
 					}
@@ -851,11 +1021,40 @@ func isPathExcluded(filePath string, exclusions []*db.FileSecurityExclusionRecor
 		if pattern == "" {
 			continue
 		}
+		if filePath == pattern {
+			return true
+		}
 		if !strings.ContainsAny(pattern, "*?[") {
-			if strings.Contains(filePath, pattern) {
+			cleanPattern := strings.TrimSuffix(pattern, "/")
+			if filePath == cleanPattern ||
+				strings.HasPrefix(filePath, cleanPattern+"/") ||
+				strings.Contains(filePath, "/"+strings.Trim(cleanPattern, "/")+"/") ||
+				strings.HasSuffix(filePath, "/"+cleanPattern) ||
+				strings.Contains(filePath, pattern) {
 				return true
 			}
 			continue
+		}
+		if strings.HasSuffix(pattern, "/*") {
+			dir := strings.TrimSuffix(pattern, "/*")
+			if filePath == dir || strings.HasPrefix(filePath, dir+"/") {
+				return true
+			}
+			cleanDir := strings.Trim(dir, "/")
+			if strings.Contains(filePath, "/"+cleanDir+"/") || strings.HasSuffix(filePath, "/"+cleanDir) {
+				return true
+			}
+		}
+		if strings.HasPrefix(pattern, "*/") && strings.HasSuffix(pattern, "/*") {
+			mid := strings.TrimSuffix(strings.TrimPrefix(pattern, "*/"), "/*")
+			if strings.Contains(filePath, "/"+mid+"/") || strings.HasSuffix(filePath, "/"+mid) {
+				return true
+			}
+		}
+		if strings.HasPrefix(pattern, "*.") && !strings.Contains(pattern[2:], "/") {
+			if strings.HasSuffix(filePath, pattern[1:]) {
+				return true
+			}
 		}
 		if matched, _ := path.Match(pattern, filePath); matched {
 			return true

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { getErrorMessage } from '../../utils/errors';
 
 import {
@@ -15,6 +15,7 @@ import {
   Camera,
   GitCompare,
   Loader2,
+  Sliders,
 } from 'lucide-react';
 import {
   ScanSecurityFiles,
@@ -26,6 +27,10 @@ import {
   ListFileSnapshots,
   DeleteFileSnapshot,
   CompareFileSnapshot,
+  ListFileSecuritySignatures,
+  SaveFileSecuritySignature,
+  DeleteFileSecuritySignature,
+  ToggleFileSecuritySignature,
   ListSites,
 } from '../../../wailsjs/go/main/App';
 import { security, db } from '../../../wailsjs/go/models';
@@ -35,8 +40,74 @@ import { useConfirm } from '../../context/ConfirmContext';
 import { FileViewerModal } from './FileViewerModal';
 import { ExclusionsModal } from './ExclusionsModal';
 import { SnapshotsModal } from './SnapshotsModal';
+import { SignaturesModal } from './SignaturesModal';
 import { ScanResultsTable } from './ScanResultsTable';
 import { Button, Input, Select } from '../ui';
+
+export function matchFileExclusion(filePath: string, rawPattern: string): boolean {
+  if (!filePath || !rawPattern) return false;
+  const pattern = rawPattern.trim();
+  if (!pattern) return false;
+
+  // Exact match
+  if (filePath === pattern) return true;
+
+  // No wildcards: check exact, prefix or directory component
+  if (!pattern.includes('*') && !pattern.includes('?') && !pattern.includes('[')) {
+    const clean = pattern.endsWith('/') ? pattern.slice(0, -1) : pattern;
+    if (
+      filePath === clean ||
+      filePath.startsWith(clean + '/') ||
+      filePath.includes('/' + clean.replace(/^\//, '') + '/') ||
+      filePath.endsWith('/' + clean.replace(/^\//, '')) ||
+      filePath.includes(pattern)
+    ) {
+      return true;
+    }
+    return false;
+  }
+
+  // Trailing directory wildcard: e.g. /var/www/site/cache/* or cache/*
+  if (pattern.endsWith('/*')) {
+    const dir = pattern.slice(0, -2);
+    if (filePath === dir || filePath.startsWith(dir + '/')) return true;
+    const cleanDir = dir.replace(/^\//, '');
+    if (filePath.includes('/' + cleanDir + '/') || filePath.endsWith('/' + cleanDir)) return true;
+  }
+
+  // Infix directory wildcard: e.g. */cache/*
+  if (pattern.startsWith('*/') && pattern.endsWith('/*')) {
+    const mid = pattern.slice(2, -2);
+    if (filePath.includes('/' + mid + '/') || filePath.endsWith('/' + mid)) return true;
+  }
+
+  // Extension wildcard: e.g. *.log or *.php
+  if (pattern.startsWith('*.') && !pattern.slice(2).includes('/')) {
+    const ext = pattern.slice(1);
+    if (filePath.endsWith(ext)) return true;
+  }
+
+  // General glob matching
+  try {
+    const escaped = pattern
+      .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+      .replace(/\*\*/g, '§§GLOBSTAR§§')
+      .replace(/\*/g, '[^/]*')
+      .replace(/\?/g, '[^/]')
+      .replace(/§§GLOBSTAR§§/g, '.*');
+
+    const re = new RegExp('(^|/)' + escaped + '($|/)');
+    if (re.test(filePath)) return true;
+
+    const fullRe = new RegExp('^' + escaped + '$');
+    if (fullRe.test(filePath)) return true;
+  } catch {
+    const stripped = pattern.replace(/[*?[\]]/g, '');
+    if (stripped && filePath.includes(stripped)) return true;
+  }
+
+  return false;
+}
 
 interface FileSecurityScannerProps {
   serverId: string;
@@ -84,6 +155,11 @@ export const FileSecurityScanner: React.FC<FileSecurityScannerProps> = ({ server
   const [diffResult, setDiffResult] = useState<security.SnapshotDiffResult | null>(null);
   const [isComparing, setIsComparing] = useState(false);
 
+  // Heuristic Signatures Modal
+  const [isSignaturesOpen, setIsSignaturesOpen] = useState(false);
+  const [signatures, setSignatures] = useState<security.FileSecuritySignature[]>([]);
+  const [isLoadingSignatures, setIsLoadingSignatures] = useState(false);
+
   // Status Notification Toast
   const [statusToast, setStatusToast] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
 
@@ -103,8 +179,21 @@ export const FileSecurityScanner: React.FC<FileSecurityScannerProps> = ({ server
       loadSites();
       loadExclusions();
       loadSnapshots();
+      loadSignatures();
     }
   }, [serverId]);
+
+  const loadSignatures = async () => {
+    setIsLoadingSignatures(true);
+    try {
+      const res = await ListFileSecuritySignatures(serverId);
+      setSignatures(res || []);
+    } catch (err: unknown) {
+      console.error('Failed to load signatures', err);
+    } finally {
+      setIsLoadingSignatures(false);
+    }
+  };
 
   const loadSites = async () => {
     try {
@@ -195,6 +284,15 @@ export const FileSecurityScanner: React.FC<FileSecurityScannerProps> = ({ server
     }
   };
 
+  const isFileExcluded = useCallback(
+    (filePath: string, backendFlag?: boolean) => {
+      if (backendFlag) return true;
+      if (!exclusions || exclusions.length === 0) return false;
+      return exclusions.some((exc) => matchFileExclusion(filePath, exc.pattern));
+    },
+    [exclusions]
+  );
+
   const handleAddQuickExclusion = async (filePath: string) => {
     const pattern = filePath;
     const reason = t('fileScanner.addExclusionReasonDefault');
@@ -217,11 +315,22 @@ export const FileSecurityScanner: React.FC<FileSecurityScannerProps> = ({ server
     e.preventDefault();
     if (!newExclusionPattern.trim()) return;
     setIsAddingExclusion(true);
+    const pat = newExclusionPattern.trim();
     try {
-      await AddFileExclusion(serverId, newExclusionPattern.trim(), newExclusionReason.trim());
+      await AddFileExclusion(serverId, pat, newExclusionReason.trim());
       setNewExclusionPattern('');
       setNewExclusionReason('');
       await loadExclusions();
+      if (scanResult) {
+        setScanResult(
+          new security.ScanFilesResult({
+            ...scanResult,
+            files: (scanResult.files || []).map((f) =>
+              matchFileExclusion(f.path, pat) ? { ...f, is_excluded: true } : f
+            ),
+          })
+        );
+      }
       showToast('success', t('fileScanner.exclusionAddedToast'));
     } catch (err: unknown) {
       showToast('error', t('fileScanner.addExclusionError', { error: getErrorMessage(err) }));
@@ -233,7 +342,19 @@ export const FileSecurityScanner: React.FC<FileSecurityScannerProps> = ({ server
   const handleDeleteExclusion = async (id: string) => {
     try {
       await DeleteFileExclusion(id);
-      await loadExclusions();
+      const remaining = await ListFileExclusions(serverId);
+      setExclusions(remaining || []);
+      if (scanResult) {
+        setScanResult(
+          new security.ScanFilesResult({
+            ...scanResult,
+            files: (scanResult.files || []).map((f) => ({
+              ...f,
+              is_excluded: (remaining || []).some((exc) => matchFileExclusion(f.path, exc.pattern)),
+            })),
+          })
+        );
+      }
       showToast('success', t('fileScanner.exclusionRemovedToast'));
     } catch (err: unknown) {
       showToast('error', t('fileScanner.addExclusionError', { error: getErrorMessage(err) }));
@@ -287,6 +408,38 @@ export const FileSecurityScanner: React.FC<FileSecurityScannerProps> = ({ server
     }
   };
 
+  const handleSaveSignature = async (sig: security.FileSecuritySignature) => {
+    try {
+      await SaveFileSecuritySignature(sig);
+      await loadSignatures();
+      showToast('success', t('fileScanner.signatureSavedToast'));
+    } catch (err: unknown) {
+      showToast('error', getErrorMessage(err));
+      throw err;
+    }
+  };
+
+  const handleDeleteSignature = async (id: string) => {
+    if (!(await confirm(t('fileScanner.deleteSignatureConfirm'), { danger: true, confirmLabel: t('common.delete') }))) return;
+    try {
+      await DeleteFileSecuritySignature(id);
+      await loadSignatures();
+      showToast('success', t('fileScanner.signatureDeletedToast'));
+    } catch (err: unknown) {
+      showToast('error', getErrorMessage(err));
+    }
+  };
+
+  const handleToggleSignature = async (id: string, enabled: boolean) => {
+    try {
+      await ToggleFileSecuritySignature(id, enabled);
+      await loadSignatures();
+      showToast('success', t('fileScanner.signatureToggledToast'));
+    } catch (err: unknown) {
+      showToast('error', getErrorMessage(err));
+    }
+  };
+
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopiedPath(text);
@@ -294,7 +447,13 @@ export const FileSecurityScanner: React.FC<FileSecurityScannerProps> = ({ server
   };
 
   // Filtered files for display
-  const displayedFiles = (scanResult?.files || []).filter((f) => {
+  const displayedFiles = (scanResult?.files || []).map((f) => {
+    const excluded = isFileExcluded(f.path, f.is_excluded);
+    if (f.is_excluded !== excluded) {
+      return { ...f, is_excluded: excluded };
+    }
+    return f;
+  }).filter((f) => {
     if (hideExcluded && f.is_excluded) return false;
     if (threatFilter === 'threats' && f.threat_level === 'clean') return false;
     if (threatFilter === 'clean' && f.threat_level !== 'clean') return false;
@@ -395,6 +554,19 @@ export const FileSecurityScanner: React.FC<FileSecurityScannerProps> = ({ server
               title={t('fileScanner.exclusionsBtn')}
             >
               {t('fileScanner.exclusionsBtn')} ({exclusions.length})
+            </Button>
+
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setIsSignaturesOpen(true);
+                loadSignatures();
+              }}
+              icon={<Sliders className="w-3.5 h-3.5 text-indigo-400" />}
+              title={t('fileScanner.signaturesBtn')}
+            >
+              {t('fileScanner.signaturesBtn')} ({signatures.length})
             </Button>
           </div>
         </div>
@@ -726,6 +898,18 @@ export const FileSecurityScanner: React.FC<FileSecurityScannerProps> = ({ server
           onCreateSnapshot={handleCreateSnapshot}
           onCompare={handleCompareSnapshot}
           onDeleteSnapshot={handleDeleteSnapshot}
+        />
+      )}
+
+      {/* Heuristic Signatures Modal */}
+      {isSignaturesOpen && (
+        <SignaturesModal
+          onClose={() => setIsSignaturesOpen(false)}
+          signatures={signatures}
+          isLoading={isLoadingSignatures}
+          onSaveSignature={handleSaveSignature}
+          onDeleteSignature={handleDeleteSignature}
+          onToggleSignature={handleToggleSignature}
         />
       )}
     </div>

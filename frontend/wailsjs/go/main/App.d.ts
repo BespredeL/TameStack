@@ -189,6 +189,8 @@ export function DeleteFail2banJail(arg1:security.DeleteFail2banJailRequest):Prom
 
 export function DeleteFileExclusion(arg1:string):Promise<void>;
 
+export function DeleteFileSecuritySignature(arg1:string):Promise<void>;
+
 export function DeleteFileSnapshot(arg1:string):Promise<void>;
 
 export function DeleteFirewallRule(arg1:string,arg2:number,arg3:string,arg4:string):Promise<db.TaskRecord>;
@@ -351,6 +353,8 @@ export function ListDockerVolumes(arg1:string):Promise<Array<docker.VolumeItem>>
 
 export function ListFileExclusions(arg1:string):Promise<Array<security.FileSecurityExclusion>>;
 
+export function ListFileSecuritySignatures(arg1:string):Promise<Array<security.FileSecuritySignature>>;
+
 export function ListFileSnapshots(arg1:string):Promise<Array<security.FileSecuritySnapshot>>;
 
 export function ListInstalledPackages(arg1:string,arg2:string):Promise<Array<packages.PackageItem>>;
@@ -467,6 +471,8 @@ export function SaveDatabaseConfig(arg1:string,arg2:string,arg3:string,arg4:stri
 
 export function SaveFail2banJail(arg1:security.SaveFail2banJailRequest):Promise<db.TaskRecord>;
 
+export function SaveFileSecuritySignature(arg1:security.FileSecuritySignature):Promise<security.FileSecuritySignature>;
+
 export function SavePHPIni(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function SavePHPSettings(arg1:string,arg2:string,arg3:string,arg4:php.PHPSettings):Promise<void>;
@@ -514,6 +520,8 @@ export function TestWebserverConfig(arg1:string,arg2:string):Promise<Record<stri
 export function ToggleCronJob(arg1:cron.ToggleCronJobRequest):Promise<void>;
 
 export function ToggleFail2banJail(arg1:security.ToggleFail2banJailRequest):Promise<db.TaskRecord>;
+
+export function ToggleFileSecuritySignature(arg1:string,arg2:boolean):Promise<void>;
 
 export function ToggleFirewall(arg1:string,arg2:boolean):Promise<db.TaskRecord>;
 

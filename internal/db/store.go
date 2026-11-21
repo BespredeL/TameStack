@@ -93,6 +93,11 @@ type FileSecurityStore interface {
 	ListFileSecuritySnapshots(ctx context.Context, serverID string) ([]*FileSecuritySnapshotRecord, error)
 	GetFileSecuritySnapshot(ctx context.Context, id string) (*FileSecuritySnapshotRecord, error)
 	DeleteFileSecuritySnapshot(ctx context.Context, id string) error
+	SaveFileSecuritySignature(ctx context.Context, s *FileSecuritySignatureRecord) error
+	ListFileSecuritySignatures(ctx context.Context, serverID string) ([]*FileSecuritySignatureRecord, error)
+	GetFileSecuritySignature(ctx context.Context, id string) (*FileSecuritySignatureRecord, error)
+	DeleteFileSecuritySignature(ctx context.Context, id string) error
+	ToggleFileSecuritySignature(ctx context.Context, id string, enabled bool) error
 }
 
 type ProvisioningStore interface {

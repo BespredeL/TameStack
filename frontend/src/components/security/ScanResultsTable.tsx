@@ -35,6 +35,7 @@ export const ScanResultsTable: React.FC<ScanResultsTableProps> = ({
   onDelete,
 }) => {
   const { t } = useTranslation();
+  const excludedCount = (scanResult.files || []).filter((f) => f.is_excluded).length;
 
   return (
     <div className="bg-surface-850 border border-slate-800 rounded-2xl overflow-hidden shadow-sm space-y-0">
@@ -104,7 +105,7 @@ export const ScanResultsTable: React.FC<ScanResultsTableProps> = ({
             className="px-2.5 py-1 bg-slate-900 border border-slate-800 rounded-lg text-xs text-white font-mono focus:outline-none focus:border-indigo-500 w-36 sm:w-48"
           />
 
-          <label className="flex items-center gap-1.5 text-xs text-slate-400 cursor-pointer select-none">
+          <label className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-300 cursor-pointer select-none">
             <input
               type="checkbox"
               checked={hideExcluded}
@@ -112,6 +113,11 @@ export const ScanResultsTable: React.FC<ScanResultsTableProps> = ({
               className="rounded border-slate-700 bg-slate-900 text-indigo-600 focus:ring-0 cursor-pointer"
             />
             <span>{t('fileScanner.hideExcluded')}</span>
+            {excludedCount > 0 && (
+              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700">
+                {excludedCount}
+              </span>
+            )}
           </label>
         </div>
       </div>
