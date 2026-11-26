@@ -3,7 +3,7 @@ import { Download, ExternalLink, RefreshCw, Rocket, ShieldAlert } from 'lucide-r
 import { useTranslation } from '../../i18n/LanguageContext';
 import { update } from '../../../wailsjs/go/models';
 import { CheckForUpdates, InstallUpdate } from '../../../wailsjs/go/main/App';
-import { BrowserOpenURL, EventsOff, EventsOn } from '../../../wailsjs/runtime/runtime';
+import { BrowserOpenURL, EventsOn } from '../../../wailsjs/runtime/runtime';
 import { useConfirm } from '../../context/ConfirmContext';
 import { getErrorMessage } from '../../utils/errors';
 
@@ -49,13 +49,13 @@ export const UpdateSection: React.FC = () => {
       setProgress(null);
       setReady(true);
     };
-    EventsOn('update:progress', onProgress);
-    EventsOn('update:error', onError);
-    EventsOn('update:ready', onReady);
+    const unProgress = EventsOn('update:progress', onProgress);
+    const unError = EventsOn('update:error', onError);
+    const unReady = EventsOn('update:ready', onReady);
     return () => {
-      EventsOff('update:progress');
-      EventsOff('update:error');
-      EventsOff('update:ready');
+      if (typeof unProgress === 'function') unProgress();
+      if (typeof unError === 'function') unError();
+      if (typeof unReady === 'function') unReady();
     };
   }, [t]);
 

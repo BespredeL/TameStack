@@ -30,8 +30,11 @@ func ValidateLogPath(filePath string) (string, error) {
 	if p == "" {
 		return "", fmt.Errorf("путь к лог-файлу не может быть пустым")
 	}
-	if !strings.HasPrefix(p, "/") {
-		return "", fmt.Errorf("путь должен быть абсолютным: %s", p)
+	if err := ssh.ValidateRemotePath(p, false); err != nil {
+		return "", err
+	}
+	if strings.ContainsAny(p, ";|&$`><\r\n") {
+		return "", fmt.Errorf("путь к лог-файлу содержит недопустимые символы")
 	}
 	clean := path.Clean(p)
 
@@ -79,11 +82,12 @@ func (s *Service) GetTailLog(ctx context.Context, serverID string, filePath stri
 		return nil, err
 	}
 
-	sizeCmd := fmt.Sprintf("stat -c %%s %s 2>/dev/null || wc -c < %s 2>/dev/null || echo 0", cleanPath, cleanPath)
+	safePath := ssh.ShellEscape(cleanPath)
+	sizeCmd := fmt.Sprintf("stat -c %%s %s 2>/dev/null || wc -c < %s 2>/dev/null || echo 0", safePath, safePath)
 	stdout, _, _, _ := client.NewCommand(sizeCmd).WithSudo().Exec(ctx)
 	sizeBytes, _ := strconv.ParseInt(strings.TrimSpace(string(stdout)), 10, 64)
 
-	tailCmd := fmt.Sprintf("tail -n %d %s", lines, cleanPath)
+	tailCmd := fmt.Sprintf("tail -n %d %s", lines, safePath)
 	outBytes, errBytes, code, err := client.NewCommand(tailCmd).WithSudo().Exec(ctx)
 	if err != nil || code != 0 {
 		return nil, fmt.Errorf("ошибка чтения лог-файла: %s", strings.TrimSpace(string(errBytes)))

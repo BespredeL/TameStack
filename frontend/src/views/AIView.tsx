@@ -39,7 +39,7 @@ import {
   AIGetDisabledTools,
   AISetDisabledTools,
 } from '../../wailsjs/go/main/App';
-import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime';
+import { EventsOn } from '../../wailsjs/runtime/runtime';
 import { MessageItem } from '../components/ai/MessageItem';
 import { AISettingsModal } from '../components/ai/AISettingsModal';
 import { AgentsManagerModal } from '../components/ai/AgentsManagerModal';
@@ -339,7 +339,6 @@ export const AIView: React.FC<AIViewProps> = ({
       if (typeof unChunk === 'function') unChunk();
       if (typeof unComplete === 'function') unComplete();
       if (typeof unError === 'function') unError();
-      EventsOff('ai:stream:chunk', 'ai:stream:complete', 'ai:stream:error');
     };
   }, []);
 

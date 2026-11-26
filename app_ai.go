@@ -146,8 +146,10 @@ func (a *App) AIStreamMessage(convID string, userPrompt string) error {
 	go func() {
 		defer a.aiStreamingConvs.Delete(convID)
 
+		var errEmitted bool
 		_, err := a.aiChatService.StreamMessage(a.ctx, convID, userPrompt, func(chunk domain.StreamChunk) {
 			if chunk.Error != nil {
+				errEmitted = true
 				wailsRuntime.EventsEmit(a.ctx, "ai:stream:error", map[string]any{
 					"conversation_id": convID,
 					"error":           chunk.Error.Error(),
@@ -165,10 +167,12 @@ func (a *App) AIStreamMessage(convID string, userPrompt string) error {
 		})
 
 		if err != nil {
-			wailsRuntime.EventsEmit(a.ctx, "ai:stream:error", map[string]any{
-				"conversation_id": convID,
-				"error":           err.Error(),
-			})
+			if !errEmitted {
+				wailsRuntime.EventsEmit(a.ctx, "ai:stream:error", map[string]any{
+					"conversation_id": convID,
+					"error":           err.Error(),
+				})
+			}
 			return
 		}
 

@@ -72,6 +72,19 @@ func QueueUnitName(siteID string) string {
 
 // InstallQueueWorker deploys and activates the systemd unit file.
 func InstallQueueWorker(ctx context.Context, client *ssh.SSHClient, site *db.SiteRecord, cfg QueueWorkerConfig) error {
+	if cfg.Connection != "" {
+		if err := ssh.ValidateToken(cfg.Connection, "queue connection"); err != nil {
+			return err
+		}
+	}
+	if cfg.Queue != "" {
+		// Queue names can be comma-separated (e.g. "high,default").
+		for _, q := range strings.Split(cfg.Queue, ",") {
+			if err := ssh.ValidateToken(strings.TrimSpace(q), "queue name"); err != nil {
+				return err
+			}
+		}
+	}
 	projectRoot := ResolveProjectRoot(site.DocumentRoot)
 	unitName := QueueUnitName(site.ID)
 	unitPath := fmt.Sprintf("/etc/systemd/system/%s", unitName)

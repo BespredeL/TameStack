@@ -272,10 +272,20 @@ func (s *Service) handleBackupCreateTask(ctx context.Context, task *db.TaskRecor
 			safeDB := ssh.ShellEscape(dbDumpName)
 			dumpPath := fmt.Sprintf("/tmp/%s_%s.sql", dbDumpName, timestamp)
 			safeDump := ssh.ShellEscape(dumpPath)
+			dumpErrPath := fmt.Sprintf("/tmp/%s_%s.sql.err", dbDumpName, timestamp)
+			safeDumpErr := ssh.ShellEscape(dumpErrPath)
 			dumpBase := fmt.Sprintf("%s_%s.sql", dbDumpName, timestamp)
 
-			cmd = fmt.Sprintf("mysqldump --single-transaction --quick %s > %s 2>/dev/null || true; ", safeDB, safeDump) +
-				findDir +
+			if req.DatabaseName != "" {
+				// Explicit database requested: fail the task if mysqldump fails so the user doesn't get an incomplete backup silently.
+				cmd = fmt.Sprintf("if ! mysqldump --single-transaction --quick %s > %s 2>%s; then err=$(cat %s 2>/dev/null); rm -f %s %s; echo \"mysqldump failed for %s: $err\" >&2; exit 1; fi; rm -f %s; ",
+					safeDB, safeDump, safeDumpErr, safeDumpErr, safeDump, safeDumpErr, dbDumpName, safeDumpErr)
+			} else {
+				// Auto-inferred database from domain: log warning on failure, still archive site files.
+				cmd = fmt.Sprintf("if ! mysqldump --single-transaction --quick %s > %s 2>%s; then echo \"Warning: mysqldump for %s failed: $(cat %s 2>/dev/null)\" >&2; rm -f %s; fi; rm -f %s; ",
+					safeDB, safeDump, safeDumpErr, dbDumpName, safeDumpErr, safeDump, safeDumpErr)
+			}
+			cmd = cmd + findDir +
 				fmt.Sprintf(
 					"if [ -s %s ]; then "+
 						"tar -czf %s -C \"$dirParent\" \"$dirBase\" -C /tmp %s; "+

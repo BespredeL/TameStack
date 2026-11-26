@@ -7,6 +7,7 @@ import (
 	"io"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"tamestack/internal/config"
 	"tamestack/internal/crypto"
@@ -121,44 +122,24 @@ func (s *Service) StartSession(ctx context.Context, req StartSessionRequest) (*T
 
 	// Goroutine reading stdout.
 	go func() {
-		buf := make([]byte, 4096)
-		for {
-			select {
-			case <-sessCtx.Done():
-				return
-			default:
-				n, err := stdout.Read(buf)
-				if n > 0 && appCtx != nil {
-					wailsRuntime.EventsEmit(appCtx, "terminal:data:"+sessionID, string(buf[:n]))
-				}
-				if err != nil {
-					if appCtx != nil {
-						wailsRuntime.EventsEmit(appCtx, "terminal:exit:"+sessionID, true)
-					}
-					_ = s.CloseSession(sessionID)
-					return
-				}
+		pumpUTF8Stream(sessCtx, stdout, func(chunk string) {
+			if appCtx != nil {
+				wailsRuntime.EventsEmit(appCtx, "terminal:data:"+sessionID, chunk)
 			}
+		})
+		if appCtx != nil {
+			wailsRuntime.EventsEmit(appCtx, "terminal:exit:"+sessionID, true)
 		}
+		_ = s.CloseSession(sessionID)
 	}()
 
 	// Goroutine reading stderr.
 	go func() {
-		buf := make([]byte, 4096)
-		for {
-			select {
-			case <-sessCtx.Done():
-				return
-			default:
-				n, err := stderr.Read(buf)
-				if n > 0 && appCtx != nil {
-					wailsRuntime.EventsEmit(appCtx, "terminal:data:"+sessionID, string(buf[:n]))
-				}
-				if err != nil {
-					return
-				}
+		pumpUTF8Stream(sessCtx, stderr, func(chunk string) {
+			if appCtx != nil {
+				wailsRuntime.EventsEmit(appCtx, "terminal:data:"+sessionID, chunk)
 			}
-		}
+		})
 	}()
 
 	// Subscribe to input events from the GUI.
@@ -245,4 +226,52 @@ func (s *Service) CloseSession(sessionID string) error {
 	}
 
 	return nil
+}
+
+// pumpUTF8Stream reads from r and invokes emit with valid UTF-8 boundary-aligned chunks,
+// holding back any incomplete trailing multi-byte rune until the next read.
+func pumpUTF8Stream(ctx context.Context, r io.Reader, emit func(string)) {
+	buf := make([]byte, 4096)
+	var pending []byte
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+		n, err := r.Read(buf)
+		if n > 0 {
+			pending = append(pending, buf[:n]...)
+			cut := trailingIncompleteUTF8(pending)
+			if cut > 0 {
+				emit(string(pending[:cut]))
+				pending = append(pending[:0], pending[cut:]...)
+			}
+		}
+		if err != nil {
+			if len(pending) > 0 && ctx.Err() == nil {
+				emit(string(pending))
+			}
+			return
+		}
+	}
+}
+
+// trailingIncompleteUTF8 returns the index up to which data ends on a complete UTF-8 rune boundary.
+func trailingIncompleteUTF8(data []byte) int {
+	n := len(data)
+	// A UTF-8 rune is at most 4 bytes; inspect up to the last 3 bytes for an incomplete leading sequence.
+	for i := 1; i <= 3 && i <= n; i++ {
+		b := data[n-i]
+		if b < utf8.RuneSelf {
+			return n
+		}
+		if utf8.RuneStart(b) {
+			if utf8.FullRune(data[n-i:]) {
+				return n
+			}
+			return n - i
+		}
+	}
+	return n
 }

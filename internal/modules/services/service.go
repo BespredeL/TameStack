@@ -183,15 +183,28 @@ func (s *Service) ListListeningPorts(ctx context.Context, serverID string) ([]Li
 	return ParseSsListening(out)
 }
 
+// allowedDNSRecordTypes restricts recordType to standard DNS query types so
+// unvalidated strings cannot be injected into remote dig/host commands.
+var allowedDNSRecordTypes = map[string]bool{
+	"A": true, "AAAA": true, "CNAME": true, "MX": true, "TXT": true,
+	"NS": true, "PTR": true, "SOA": true, "SRV": true, "CAA": true, "ANY": true,
+}
+
 // CheckDNS runs DNS resolution query on the remote host.
 func (s *Service) CheckDNS(ctx context.Context, serverID string, domain string, recordType string) (*DNSCheckResult, error) {
 	dom := strings.TrimSpace(domain)
 	if dom == "" {
 		return nil, fmt.Errorf("доменное имя не может быть пустым")
 	}
+	if err := ssh.ValidateHostToken(dom); err != nil {
+		return nil, fmt.Errorf("недопустимое доменное имя: %w", err)
+	}
 	recType := strings.ToUpper(strings.TrimSpace(recordType))
 	if recType == "" {
 		recType = "A"
+	}
+	if !allowedDNSRecordTypes[recType] {
+		return nil, fmt.Errorf("недопустимый тип DNS-записи: %s", recType)
 	}
 
 	client, _, err := s.GetSSHClient(ctx, serverID)
@@ -199,8 +212,10 @@ func (s *Service) CheckDNS(ctx context.Context, serverID string, domain string, 
 		return nil, err
 	}
 
+	safeDom := ssh.ShellEscape(dom)
+	safeType := ssh.ShellEscape(recType)
 	// Try dig, then host, then getent.
-	cmd := fmt.Sprintf("dig +short %s %s 2>/dev/null || host -t %s %s 2>/dev/null || getent hosts %s 2>/dev/null || true", recType, dom, recType, dom, dom)
+	cmd := fmt.Sprintf("dig +short %s %s 2>/dev/null || host -t %s %s 2>/dev/null || getent hosts %s 2>/dev/null || true", safeType, safeDom, safeType, safeDom, safeDom)
 	out, _ := s.execCmd(ctx, client, cmd, false)
 
 	lines := strings.Split(strings.TrimSpace(out), "\n")
@@ -226,6 +241,9 @@ func (s *Service) CheckPort(ctx context.Context, serverID string, host string, p
 	if h == "" {
 		return nil, fmt.Errorf("хост не может быть пустым")
 	}
+	if err := ssh.ValidateHostToken(h); err != nil {
+		return nil, fmt.Errorf("недопустимый хост: %w", err)
+	}
 	if port <= 0 || port > 65535 {
 		return nil, fmt.Errorf("недопустимый порт: %d", port)
 	}
@@ -236,7 +254,9 @@ func (s *Service) CheckPort(ctx context.Context, serverID string, host string, p
 	}
 
 	start := time.Now()
-	cmd := fmt.Sprintf("nc -z -w 3 %s %d 2>/dev/null || timeout 3 bash -c '</dev/tcp/%s/%d' 2>/dev/null", h, port, h, port)
+	safeHost := ssh.ShellEscape(h)
+	// ValidateHostToken guarantees h has no shell metacharacters or slashes, so /dev/tcp/<h>/<port> is safe.
+	cmd := fmt.Sprintf("nc -z -w 3 %s %d 2>/dev/null || timeout 3 bash -c '</dev/tcp/%s/%d' 2>/dev/null", safeHost, port, h, port)
 	_, err = s.execCmd(ctx, client, cmd, false)
 	duration := time.Since(start).Milliseconds()
 

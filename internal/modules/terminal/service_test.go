@@ -1,10 +1,14 @@
 ﻿package terminal
 
 import (
+	"context"
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"tamestack/internal/testutil"
 	"testing"
+	"unicode/utf8"
 
 	"tamestack/internal/config"
 	"tamestack/internal/crypto"
@@ -48,5 +52,44 @@ func TestTerminalService_SessionNotFound(t *testing.T) {
 	err = svc.CloseSession("non-existent-session-id")
 	if err != nil {
 		t.Errorf("expected nil error closing non-existent session, got %v", err)
+	}
+}
+
+type chunkedReader struct {
+	chunks [][]byte
+	idx    int
+}
+
+func (r *chunkedReader) Read(p []byte) (int, error) {
+	if r.idx >= len(r.chunks) {
+		return 0, io.EOF
+	}
+	n := copy(p, r.chunks[r.idx])
+	r.idx++
+	return n, nil
+}
+
+func TestPumpUTF8Stream_SplitMultiByteRune(t *testing.T) {
+	want := "Привет 🚀 мир!"
+	raw := []byte(want)
+	// Split right in the middle of multi-byte Cyrillic and emoji sequences.
+	cr := &chunkedReader{
+		chunks: [][]byte{
+			raw[:3],
+			raw[3:15],
+			raw[15:],
+		},
+	}
+
+	var out strings.Builder
+	pumpUTF8Stream(context.Background(), cr, func(chunk string) {
+		if !utf8.ValidString(chunk) {
+			t.Errorf("emitted invalid UTF-8 chunk: %q", chunk)
+		}
+		out.WriteString(chunk)
+	})
+
+	if out.String() != want {
+		t.Errorf("got %q, want %q", out.String(), want)
 	}
 }

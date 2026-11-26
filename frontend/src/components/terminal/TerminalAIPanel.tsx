@@ -27,7 +27,7 @@ import {
   AIListMessages,
   AIStreamMessage,
 } from '../../../wailsjs/go/main/App';
-import { EventsOn, EventsOff } from '../../../wailsjs/runtime/runtime';
+import { EventsOn } from '../../../wailsjs/runtime/runtime';
 import { AIMessageRecord, AIStreamChunkPayload, AIStreamCompletePayload, AIStreamErrorPayload } from '../../types';
 
 export interface TerminalTabInfo {
@@ -210,7 +210,6 @@ export const TerminalAIPanel: React.FC<TerminalAIPanelProps> = ({
       if (typeof unChunk === 'function') unChunk();
       if (typeof unComplete === 'function') unComplete();
       if (typeof unError === 'function') unError();
-      EventsOff('ai:stream:chunk', 'ai:stream:complete', 'ai:stream:error');
     };
   }, []);
 

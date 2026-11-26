@@ -537,7 +537,7 @@ func (s *Service) DeleteUser(ctx context.Context, serverID string, engine Engine
 
 	case EnginePostgreSQL:
 		query := fmt.Sprintf("DROP USER IF EXISTS \"%s\";", username)
-		out, stderr, code, err := client.ExecStdin(ctx, client.SudoHeader()+"$SUDO sudo -u postgres psql -v ON_ERROR_STOP=1\n", strings.NewReader(query))
+		out, stderr, code, err := client.ExecStdin(ctx, client.SudoHeader()+"$SUDO -u postgres psql -v ON_ERROR_STOP=1\n", strings.NewReader(query))
 		if err != nil || code != 0 {
 			return fmt.Errorf("failed to drop PostgreSQL user '%s': %s %s", username, out, stderr)
 		}
@@ -656,7 +656,7 @@ func (s *Service) handleDBCreateTask(ctx context.Context, task *db.TaskRecord, l
 		}
 	} else if req.Engine == EnginePostgreSQL {
 		sql := fmt.Sprintf("CREATE DATABASE \"%s\" ENCODING '%s';", req.Name, req.Charset)
-		cmd := fmt.Sprintf("sudo -u postgres psql -c %s", ssh.ShellEscape(sql))
+		cmd := fmt.Sprintf("$SUDO -u postgres psql -c %s", ssh.ShellEscape(sql))
 		_, stderr, code, err := s.execCmd(ctx, client, cmd)
 		if err != nil || code != 0 {
 			logger.Error(fmt.Sprintf("Failed to create PostgreSQL database: %s %v", stderr, err))
@@ -730,7 +730,7 @@ func (s *Service) handleDBUserCreateTask(ctx context.Context, task *db.TaskRecor
 		for _, dbName := range req.Databases {
 			createSql += fmt.Sprintf("GRANT ALL PRIVILEGES ON DATABASE \"%s\" TO \"%s\";\n", dbName, req.Username)
 		}
-		stdin := client.SudoHeader() + "$SUDO sudo -u postgres psql -v ON_ERROR_STOP=1\n"
+		stdin := client.SudoHeader() + "$SUDO -u postgres psql -v ON_ERROR_STOP=1\n"
 		_, stderr, code, err := client.ExecStdin(ctx, stdin, strings.NewReader(createSql))
 		if err != nil || code != 0 {
 			return "", fmt.Errorf("create postgres user error: %s %v", stderr, err)
@@ -772,16 +772,16 @@ func (s *Service) handleDBDeleteTask(ctx context.Context, task *db.TaskRecord, l
 		mysqlCmd := s.detectMySQLClientCmd(ctx, client, s.getServerSecret(record))
 		sql := fmt.Sprintf("DROP DATABASE IF EXISTS `%s`;", payload.Name)
 		cmd := fmt.Sprintf("%s -e %s", mysqlCmd, ssh.ShellEscape(sql))
-		_, _, code, err := s.execCmd(ctx, client, cmd)
+		_, stderr, code, err := s.execCmd(ctx, client, cmd)
 		if err != nil || code != 0 {
-			return "", fmt.Errorf("drop MySQL database error: %v", err)
+			return "", fmt.Errorf("drop MySQL database error: %s %v", strings.TrimSpace(stderr), err)
 		}
 	} else if payload.Engine == string(EnginePostgreSQL) {
 		sql := fmt.Sprintf("DROP DATABASE IF EXISTS \"%s\";", payload.Name)
-		cmd := fmt.Sprintf("sudo -u postgres psql -c %s", ssh.ShellEscape(sql))
-		_, _, code, err := s.execCmd(ctx, client, cmd)
+		cmd := fmt.Sprintf("$SUDO -u postgres psql -c %s", ssh.ShellEscape(sql))
+		_, stderr, code, err := s.execCmd(ctx, client, cmd)
 		if err != nil || code != 0 {
-			return "", fmt.Errorf("drop PostgreSQL database error: %v", err)
+			return "", fmt.Errorf("drop PostgreSQL database error: %s %v", strings.TrimSpace(stderr), err)
 		}
 	} else {
 		return "", fmt.Errorf("unsupported engine: %s", payload.Engine)
