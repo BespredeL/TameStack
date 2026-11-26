@@ -16,11 +16,14 @@ export const ru: Translations = {
     databases: 'Базы данных',
     docker: 'Docker',
     ssl: 'SSL Сертификаты',
+    mail: 'Почтовый сервер',
+    dns: 'DNS (BIND9)',
     filemanager: 'Файловый менеджер',
     cron: 'Cron Задачи',
     backups: 'Бэкапы',
     monitoring: 'Мониторинг',
     security: 'Безопасность',
+    users: 'Пользователи и SFTP',
     terminal: 'SSH Терминал',
     ai: 'AI Ассистент',
     tasks: 'Задачи',
@@ -51,6 +54,18 @@ export const ru: Translations = {
     dashboard: {
       title: 'Главная панель',
       subtitle: 'Сводная информация о подключенных серверах и телеметрия инфраструктуры',
+    },
+    users: {
+      title: 'Пользователи и SFTP',
+      subtitle: 'Управление пользователями сайтов, SFTP chroot-изоляцией и SSH-ключами',
+    },
+    mail: {
+      title: 'Почтовый сервер',
+      subtitle: 'Postfix, Dovecot, OpenDKIM, почтовые ящики, алиасы и DKIM/SPF/DMARC',
+    },
+    dns: {
+      title: 'DNS-сервер (BIND9)',
+      subtitle: 'Управление локальными мастер-зонами BIND9 и ресурсными записями',
     },
     servers: {
       title: 'Серверы',

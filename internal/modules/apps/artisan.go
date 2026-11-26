@@ -1,4 +1,4 @@
-﻿package apps
+package apps
 
 import (
 	"context"
@@ -77,11 +77,15 @@ func RunArtisanCommand(ctx context.Context, client *ssh.SSHClient, site *db.Site
 		flags = "--force"
 	}
 
-	shellCmd := fmt.Sprintf("cd %s && su -s /bin/bash %s -c 'php artisan %s %s 2>&1'",
+	innerCmd := fmt.Sprintf("php artisan %s", cleanCmd)
+	if flags != "" {
+		innerCmd += " " + flags
+	}
+	innerCmd += " 2>&1"
+	shellCmd := fmt.Sprintf("cd %s && su -s /bin/bash %s -c %s",
 		ssh.ShellEscape(projectRoot),
 		ssh.ShellEscape(user),
-		ssh.ShellEscape(cleanCmd),
-		flags,
+		ssh.ShellEscape(innerCmd),
 	)
 
 	out, stderr, code, err := client.NewCommand(shellCmd).WithSudo().Exec(ctx)

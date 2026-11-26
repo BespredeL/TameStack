@@ -24,6 +24,7 @@ import { useAlert } from '../context/AlertContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { ModalShell } from './common/ModalShell';
 import { Button, Input } from './ui';
+import { AppProcessManagerCard } from './sites/AppProcessManagerCard';
 import {
   InspectSiteApp,
   RunArtisan,
@@ -594,6 +595,9 @@ export const SiteAppTab: React.FC<SiteAppTabProps> = ({ site }) => {
           </div>
         </div>
       </div>
+
+      {/* Node.js / Python / Go Systemd Process Manager */}
+      <AppProcessManagerCard siteId={site.id} documentRoot={site.document_root} />
 
       {/* Env Editor Modal */}
       {isEnvModalOpen && (

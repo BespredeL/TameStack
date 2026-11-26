@@ -1,4 +1,4 @@
-﻿package main
+package main
 
 import (
 	"tamestack/internal/db"
@@ -34,5 +34,23 @@ func (a *App) GetUserAuthorizedKeys(serverID string, username string) ([]users.A
 func (a *App) AddUserAuthorizedKey(serverID string, username string, pubKey string) (*db.TaskRecord, error) {
 	return withLock(a, func() (*db.TaskRecord, error) {
 		return a.usersService.AddAuthorizedKey(a.ctx, serverID, username, pubKey)
+	})
+}
+
+func (a *App) EnableSFTPChroot(serverID string, username string, chrootDir string, writableSubdir string) (*db.TaskRecord, error) {
+	return withLock(a, func() (*db.TaskRecord, error) {
+		return a.usersService.EnableSFTPChroot(a.ctx, serverID, username, chrootDir, writableSubdir)
+	})
+}
+
+func (a *App) DisableSFTPChroot(serverID string, username string) (*db.TaskRecord, error) {
+	return withLock(a, func() (*db.TaskRecord, error) {
+		return a.usersService.DisableSFTPChroot(a.ctx, serverID, username)
+	})
+}
+
+func (a *App) SetUserPassword(serverID string, username string, password string) (*db.TaskRecord, error) {
+	return withLock(a, func() (*db.TaskRecord, error) {
+		return a.usersService.SetUserPassword(a.ctx, serverID, username, password)
 	})
 }

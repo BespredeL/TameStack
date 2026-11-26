@@ -6,6 +6,7 @@ import {domain} from '../models';
 import {chat} from '../models';
 import {router} from '../models';
 import {workflows} from '../models';
+import {context} from '../models';
 import {security} from '../models';
 import {server} from '../models';
 import {files} from '../models';
@@ -22,6 +23,8 @@ import {cron} from '../models';
 import {docker} from '../models';
 import {main} from '../models';
 import {ssl} from '../models';
+import {dns} from '../models';
+import {mail} from '../models';
 import {logs} from '../models';
 import {users} from '../models';
 import {ssh} from '../models';
@@ -89,6 +92,8 @@ export function AISetDisabledTools(arg1:Array<string>):Promise<void>;
 
 export function AIStreamMessage(arg1:string,arg2:string):Promise<void>;
 
+export function AIStreamMessageWithContext(arg1:string,arg2:string,arg3:context.UIContext):Promise<void>;
+
 export function AITestProvider(arg1:string):Promise<void>;
 
 export function AIToggleAgent(arg1:string,arg2:boolean):Promise<void>;
@@ -102,6 +107,8 @@ export function AcceptHostKey(arg1:string):Promise<void>;
 export function AddFileExclusion(arg1:string,arg2:string,arg3:string):Promise<security.FileSecurityExclusion>;
 
 export function AddFirewallRule(arg1:security.AddFirewallRuleRequest):Promise<db.TaskRecord>;
+
+export function AddMailDomain(arg1:string,arg2:string):Promise<db.TaskRecord>;
 
 export function AddServer(arg1:server.ServerInput):Promise<db.ServerRecord>;
 
@@ -147,7 +154,11 @@ export function CollectServerInventory(arg1:string):Promise<inventory.ServerInve
 
 export function CompareFileSnapshot(arg1:string):Promise<security.SnapshotDiffResult>;
 
+export function ConfigureAppProcess(arg1:string,arg2:apps.AppProcessConfig):Promise<void>;
+
 export function ConfigureQueueWorker(arg1:string,arg2:apps.QueueWorkerConfig):Promise<void>;
+
+export function ControlAppProcess(arg1:string,arg2:string):Promise<void>;
 
 export function ControlDatabaseService(arg1:string,arg2:string,arg3:string):Promise<db.TaskRecord>;
 
@@ -161,11 +172,15 @@ export function ControlWebserver(arg1:string,arg2:string,arg3:string):Promise<vo
 
 export function CreateBackup(arg1:backup.CreateBackupRequest):Promise<db.TaskRecord>;
 
+export function CreateDNSZone(arg1:string,arg2:string,arg3:string):Promise<db.TaskRecord>;
+
 export function CreateDatabase(arg1:database.CreateDatabaseRequest):Promise<db.TaskRecord>;
 
 export function CreateDatabaseUser(arg1:database.CreateUserRequest):Promise<db.TaskRecord>;
 
 export function CreateFileSnapshot(arg1:string,arg2:string,arg3:string,arg4:string):Promise<security.FileSecuritySnapshot>;
+
+export function CreateMailbox(arg1:string,arg2:string,arg3:string,arg4:number):Promise<db.TaskRecord>;
 
 export function CreatePHPPool(arg1:php.CreatePoolInput):Promise<php.FpmPoolConfig>;
 
@@ -175,11 +190,15 @@ export function CreateSite(arg1:site.SiteInput):Promise<db.TaskRecord>;
 
 export function CreateSiteUser(arg1:string,arg2:string,arg3:string):Promise<db.TaskRecord>;
 
+export function DeleteAppProcess(arg1:string):Promise<void>;
+
 export function DeleteBackup(arg1:string,arg2:string):Promise<void>;
 
 export function DeleteCertbotCertificate(arg1:string,arg2:string):Promise<void>;
 
 export function DeleteCronJob(arg1:cron.DeleteCronJobRequest):Promise<void>;
+
+export function DeleteDNSZone(arg1:string,arg2:string):Promise<db.TaskRecord>;
 
 export function DeleteDatabase(arg1:string,arg2:string,arg3:string):Promise<db.TaskRecord>;
 
@@ -195,6 +214,10 @@ export function DeleteFileSnapshot(arg1:string):Promise<void>;
 
 export function DeleteFirewallRule(arg1:string,arg2:number,arg3:string,arg4:string):Promise<db.TaskRecord>;
 
+export function DeleteMailAlias(arg1:string,arg2:string):Promise<db.TaskRecord>;
+
+export function DeleteMailbox(arg1:string,arg2:string):Promise<db.TaskRecord>;
+
 export function DeletePHPPool(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function DeleteRemoteEntry(arg1:files.DeleteEntryRequest):Promise<void>;
@@ -208,6 +231,8 @@ export function DeleteServer(arg1:string):Promise<void>;
 export function DeleteSite(arg1:string,arg2:boolean):Promise<void>;
 
 export function DetectPHPHandlers(arg1:string):Promise<Array<string>>;
+
+export function DisableSFTPChroot(arg1:string,arg2:string):Promise<db.TaskRecord>;
 
 export function DiscoverBackups(arg1:string):Promise<backup.DiscoverBackupsResult>;
 
@@ -227,9 +252,13 @@ export function DownloadBackup(arg1:string,arg2:string):Promise<string>;
 
 export function EnableDatabaseEncryption(arg1:string):Promise<void>;
 
+export function EnableSFTPChroot(arg1:string,arg2:string,arg3:string,arg4:string):Promise<db.TaskRecord>;
+
 export function ExportSupportBundle():Promise<string>;
 
 export function FixAppPermissions(arg1:string):Promise<void>;
+
+export function GetAppProcessStatus(arg1:string):Promise<apps.AppProcessStatus>;
 
 export function GetAppSettings():Promise<main.AppSettingsInfo>;
 
@@ -238,6 +267,10 @@ export function GetBootState():Promise<main.BootStateInfo>;
 export function GetCertbotConfig(arg1:string):Promise<ssl.CertbotConfig>;
 
 export function GetCertbotStatus(arg1:string):Promise<ssl.CertbotStatus>;
+
+export function GetDNSStatus(arg1:string):Promise<dns.DNSStatus>;
+
+export function GetDNSZone(arg1:string,arg2:string):Promise<dns.DNSZoneDetail>;
 
 export function GetDashboardStats():Promise<server.DashboardStats>;
 
@@ -256,6 +289,8 @@ export function GetFail2banStatus(arg1:string):Promise<security.Fail2banStatus>;
 export function GetFirewallStatus(arg1:string):Promise<security.FirewallStatus>;
 
 export function GetLatestServerInventory(arg1:string):Promise<inventory.ServerInventorySnapshot>;
+
+export function GetMailStatus(arg1:string):Promise<mail.MailStatus>;
 
 export function GetNetworkOverview(arg1:string):Promise<services.NetworkOverview>;
 
@@ -307,6 +342,8 @@ export function InspectSiteApp(arg1:string):Promise<apps.AppInspectResult>;
 
 export function InspectWebServers(arg1:string):Promise<Array<webserver.WebServerStatus>>;
 
+export function InstallBIND9(arg1:string):Promise<db.TaskRecord>;
+
 export function InstallCertbot(arg1:string):Promise<db.TaskRecord>;
 
 export function InstallDatabase(arg1:string,arg2:string,arg3:string):Promise<db.TaskRecord>;
@@ -314,6 +351,8 @@ export function InstallDatabase(arg1:string,arg2:string,arg3:string):Promise<db.
 export function InstallFail2ban(arg1:string):Promise<db.TaskRecord>;
 
 export function InstallFirewall(arg1:string,arg2:string):Promise<db.TaskRecord>;
+
+export function InstallMailStack(arg1:string,arg2:string):Promise<db.TaskRecord>;
 
 export function InstallPHPExtensions(arg1:string,arg2:string,arg3:Array<string>):Promise<db.TaskRecord>;
 
@@ -467,11 +506,15 @@ export function SaveCertbotConfig(arg1:string,arg2:ssl.CertbotConfig):Promise<vo
 
 export function SaveCronJob(arg1:cron.SaveCronJobRequest):Promise<void>;
 
+export function SaveDNSZoneRecords(arg1:string,arg2:string,arg3:Array<dns.DNSRecord>):Promise<db.TaskRecord>;
+
 export function SaveDatabaseConfig(arg1:string,arg2:string,arg3:string,arg4:string):Promise<void>;
 
 export function SaveFail2banJail(arg1:security.SaveFail2banJailRequest):Promise<db.TaskRecord>;
 
 export function SaveFileSecuritySignature(arg1:security.FileSecuritySignature):Promise<security.FileSecuritySignature>;
+
+export function SaveMailAlias(arg1:string,arg2:string,arg3:string):Promise<db.TaskRecord>;
 
 export function SavePHPIni(arg1:string,arg2:string,arg3:string):Promise<void>;
 
@@ -502,6 +545,8 @@ export function SetMasterPassword(arg1:string):Promise<void>;
 export function SetServerMode(arg1:string,arg2:string):Promise<void>;
 
 export function SetServerSudoPassword(arg1:string,arg2:string):Promise<void>;
+
+export function SetUserPassword(arg1:string,arg2:string,arg3:string):Promise<db.TaskRecord>;
 
 export function SimulateInstallPackages(arg1:string,arg2:Array<string>):Promise<packages.AptSimulationResult>;
 

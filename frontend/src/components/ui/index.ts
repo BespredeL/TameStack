@@ -8,3 +8,4 @@ export * from './Table';
 export * from './Tabs';
 export * from './PageToolbar';
 export * from './EmptyState';
+export * from './Tooltip';

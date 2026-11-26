@@ -1,4 +1,4 @@
-﻿package users
+package users
 
 import (
 	"bufio"
@@ -46,6 +46,9 @@ func NewService(cfg *config.AppConfig, database *db.DB, vault *crypto.Vault, poo
 	engine.RegisterHandler("user_create_site", s.handleCreateSiteUserTask)
 	engine.RegisterHandler("user_chown_site", s.handleChownTask)
 	engine.RegisterHandler("user_add_ssh_key", s.handleAddSSHKeyTask)
+	engine.RegisterHandler("user_enable_sftp_chroot", s.handleEnableSFTPChrootTask)
+	engine.RegisterHandler("user_disable_sftp_chroot", s.handleDisableSFTPChrootTask)
+	engine.RegisterHandler("user_set_password", s.handleSetUserPasswordTask)
 
 	return s
 }
@@ -103,6 +106,28 @@ func (s *Service) ListUsers(ctx context.Context, serverID string) ([]SystemUserI
 		return nil, fmt.Errorf("ошибка чтения /etc/passwd: %w", err)
 	}
 
+	chrootMap := make(map[string]string)
+	chrootOut, _ := s.execCmd(ctx, client, `grep -Hn "ChrootDirectory" /etc/ssh/sshd_config.d/tamestack_sftp_*.conf 2>/dev/null || true`, true)
+	for _, line := range strings.Split(chrootOut, "\n") {
+		line = strings.TrimSpace(line)
+		idx := strings.Index(line, "tamestack_sftp_")
+		if idx == -1 {
+			continue
+		}
+		rest := line[idx+len("tamestack_sftp_"):]
+		dot := strings.Index(rest, ".conf:")
+		if dot == -1 {
+			continue
+		}
+		uname := rest[:dot]
+		fields := strings.Fields(rest[dot+len(".conf:"):])
+		if len(fields) >= 2 && strings.EqualFold(fields[len(fields)-2], "ChrootDirectory") {
+			chrootMap[uname] = fields[len(fields)-1]
+		} else if len(fields) >= 3 && strings.EqualFold(fields[1], "ChrootDirectory") {
+			chrootMap[uname] = fields[2]
+		}
+	}
+
 	var users []SystemUserInfo
 	scanner := bufio.NewScanner(strings.NewReader(out))
 	for scanner.Scan() {
@@ -118,13 +143,16 @@ func (s *Service) ListUsers(ctx context.Context, serverID string) ([]SystemUserI
 		uid, _ := strconv.Atoi(parts[2])
 		gid, _ := strconv.Atoi(parts[3])
 
+		cDir, hasChroot := chrootMap[parts[0]]
 		users = append(users, SystemUserInfo{
-			Username: parts[0],
-			UID:      uid,
-			GID:      gid,
-			HomeDir:  parts[5],
-			Shell:    parts[6],
-			IsSystem: uid < 1000 && parts[0] != "root",
+			Username:   parts[0],
+			UID:        uid,
+			GID:        gid,
+			HomeDir:    parts[5],
+			Shell:      parts[6],
+			IsSystem:   uid < 1000 && parts[0] != "root",
+			SFTPChroot: hasChroot,
+			ChrootDir:  cDir,
 		})
 	}
 
@@ -141,8 +169,8 @@ func (s *Service) CreateSiteUser(ctx context.Context, serverID string, username 
 	if h == "" {
 		h = fmt.Sprintf("/var/www/%s", username)
 	}
-	if !strings.HasPrefix(h, "/") {
-		return nil, fmt.Errorf("домашний каталог должен быть абсолютным путем: %s", h)
+	if err := ssh.ValidateRemotePath(h, false); err != nil {
+		return nil, fmt.Errorf("недопустимый домашний каталог: %w", err)
 	}
 
 	payload, _ := json.Marshal(CreateSiteUserRequest{
@@ -161,8 +189,8 @@ func (s *Service) SetDirectoryOwner(ctx context.Context, serverID string, dirPat
 		return nil, err
 	}
 	p := strings.TrimSpace(dirPath)
-	if !strings.HasPrefix(p, "/") {
-		return nil, fmt.Errorf("путь должен быть абсолютным: %s", p)
+	if err := ssh.ValidateRemotePath(p, false); err != nil {
+		return nil, err
 	}
 	cleanPath := path.Clean(p)
 
@@ -174,6 +202,9 @@ func (s *Service) SetDirectoryOwner(ctx context.Context, serverID string, dirPat
 	grp := strings.TrimSpace(group)
 	if grp == "" {
 		grp = username
+	}
+	if err := ssh.ValidateIdent(grp, "group"); err != nil {
+		return nil, err
 	}
 
 	payload, _ := json.Marshal(ChownRequest{
@@ -280,14 +311,17 @@ func (s *Service) handleCreateSiteUserTask(ctx context.Context, task *db.TaskRec
 
 	logger.SetStep(fmt.Sprintf("Создание пользователя %s с каталогом %s (без sudo)", req.Username, req.HomeDir), 60)
 	// Create user with bash shell and dedicated home dir, no password, NO sudo!
-	createCmd := fmt.Sprintf("useradd -m -d %s -s /bin/bash %s", req.HomeDir, req.Username)
+	safeHome := ssh.ShellEscape(req.HomeDir)
+	safeUser := ssh.ShellEscape(req.Username)
+	createCmd := fmt.Sprintf("useradd -m -d %s -s /bin/bash %s", safeHome, safeUser)
 	out, err := s.execCmd(ctx, client, createCmd, true)
 	if err != nil {
 		return "", fmt.Errorf("ошибка создания пользователя: %w\n%s", err, out)
 	}
 
 	// Create .ssh directory with 700 permissions.
-	sshDirCmd := fmt.Sprintf("mkdir -p %s/.ssh && chmod 700 %s/.ssh && chown %s:%s %s/.ssh", req.HomeDir, req.HomeDir, req.Username, req.Username, req.HomeDir)
+	safeSSHDir := ssh.ShellEscape(path.Join(req.HomeDir, ".ssh"))
+	sshDirCmd := fmt.Sprintf("mkdir -p %s && chmod 700 %s && chown %s:%s %s", safeSSHDir, safeSSHDir, safeUser, safeUser, safeSSHDir)
 	_, _ = s.execCmd(ctx, client, sshDirCmd, true)
 
 	logger.SetStep("Готово", 100)
@@ -299,6 +333,15 @@ func (s *Service) handleChownTask(ctx context.Context, task *db.TaskRecord, logg
 	if err := json.Unmarshal([]byte(task.Payload), &req); err != nil {
 		return "", fmt.Errorf("ошибка парсинга payload: %w", err)
 	}
+	if err := ValidateUsername(req.Username); err != nil {
+		return "", err
+	}
+	if err := ssh.ValidateIdent(req.Group, "group"); err != nil {
+		return "", err
+	}
+	if err := ssh.ValidateRemotePath(req.Path, false); err != nil {
+		return "", err
+	}
 
 	client, _, err := s.GetSSHClient(ctx, req.ServerID)
 	if err != nil {
@@ -306,7 +349,7 @@ func (s *Service) handleChownTask(ctx context.Context, task *db.TaskRecord, logg
 	}
 
 	logger.SetStep(fmt.Sprintf("Установка владельца %s:%s для %s", req.Username, req.Group, req.Path), 50)
-	cmd := fmt.Sprintf("chown -R %s:%s %s", req.Username, req.Group, req.Path)
+	cmd := fmt.Sprintf("chown -R %s:%s %s", ssh.ShellEscape(req.Username), ssh.ShellEscape(req.Group), ssh.ShellEscape(req.Path))
 	out, err := s.execCmd(ctx, client, cmd, true)
 	if err != nil {
 		return "", fmt.Errorf("ошибка смены владельца каталога: %w\n%s", err, out)
@@ -321,6 +364,12 @@ func (s *Service) handleAddSSHKeyTask(ctx context.Context, task *db.TaskRecord, 
 	if err := json.Unmarshal([]byte(task.Payload), &req); err != nil {
 		return "", fmt.Errorf("ошибка парсинга payload: %w", err)
 	}
+	if err := ValidateUsername(req.Username); err != nil {
+		return "", err
+	}
+	if err := ValidateSSHKey(req.Key); err != nil {
+		return "", err
+	}
 
 	client, _, err := s.GetSSHClient(ctx, req.ServerID)
 	if err != nil {
@@ -328,7 +377,8 @@ func (s *Service) handleAddSSHKeyTask(ctx context.Context, task *db.TaskRecord, 
 	}
 
 	logger.SetStep("Определение домашнего каталога", 20)
-	homeOut, err := s.execCmd(ctx, client, fmt.Sprintf("getent passwd %s | cut -d: -f6", req.Username), false)
+	safeUser := ssh.ShellEscape(req.Username)
+	homeOut, err := s.execCmd(ctx, client, fmt.Sprintf("getent passwd %s | cut -d: -f6", safeUser), false)
 	homeDir := strings.TrimSpace(homeOut)
 	if homeDir == "" {
 		return "", fmt.Errorf("пользователь %s не найден", req.Username)
@@ -336,10 +386,13 @@ func (s *Service) handleAddSSHKeyTask(ctx context.Context, task *db.TaskRecord, 
 
 	sshDir := path.Join(homeDir, ".ssh")
 	keyFile := path.Join(sshDir, "authorized_keys")
+	safeSSHDir := ssh.ShellEscape(sshDir)
+	safeKeyFile := ssh.ShellEscape(keyFile)
 
 	logger.SetStep("Создание резервной копии authorized_keys", 40)
 	ts := time.Now().Format("20060102_150405")
-	backupCmd := fmt.Sprintf("[ -f %s ] && cp %s %s.bak_%s || true", keyFile, keyFile, keyFile, ts)
+	safeBackup := ssh.ShellEscape(fmt.Sprintf("%s.bak_%s", keyFile, ts))
+	backupCmd := fmt.Sprintf("[ -f %s ] && cp %s %s || true", safeKeyFile, safeKeyFile, safeBackup)
 	_, _ = s.execCmd(ctx, client, backupCmd, true)
 
 	logger.SetStep("Добавление открытого ключа", 70)
@@ -347,9 +400,9 @@ func (s *Service) handleAddSSHKeyTask(ctx context.Context, task *db.TaskRecord, 
 chmod 700 %s
 touch %s
 chmod 600 %s
-echo '%s' >> %s
+printf '%%s\n' %s >> %s
 chown -R %s:%s %s
-`, sshDir, sshDir, keyFile, keyFile, req.Key, keyFile, req.Username, req.Username, sshDir)
+`, safeSSHDir, safeSSHDir, safeKeyFile, safeKeyFile, ssh.ShellEscape(req.Key), safeKeyFile, safeUser, safeUser, safeSSHDir)
 
 	out, err := s.execCmd(ctx, client, appendScript, true)
 	if err != nil {
@@ -358,4 +411,209 @@ chown -R %s:%s %s
 
 	logger.SetStep("Готово", 100)
 	return fmt.Sprintf("SSH-ключ успешно добавлен для пользователя %s", req.Username), nil
+}
+
+// EnableSFTPChroot submits a task to isolate a user in an SFTP-only chroot jail.
+func (s *Service) EnableSFTPChroot(ctx context.Context, serverID, username, chrootDir, writableSubdir string) (*db.TaskRecord, error) {
+	if err := ValidateUsername(username); err != nil {
+		return nil, err
+	}
+	if username == "root" {
+		return nil, fmt.Errorf("нельзя изолировать пользователя root в SFTP chroot")
+	}
+	dir := strings.TrimSpace(chrootDir)
+	if dir == "" {
+		dir = fmt.Sprintf("/var/www/%s", username)
+	}
+	if err := ssh.ValidateRemotePath(dir, false); err != nil {
+		return nil, err
+	}
+	sub := strings.TrimSpace(writableSubdir)
+	if sub != "" {
+		if err := ssh.ValidateToken(sub, "writable subdir"); err != nil {
+			return nil, err
+		}
+	}
+
+	payload, _ := json.Marshal(SFTPChrootRequest{
+		ServerID:       serverID,
+		Username:       username,
+		ChrootDir:      path.Clean(dir),
+		WritableSubdir: sub,
+	})
+	return s.engine.Submit(serverID, "user_enable_sftp_chroot", fmt.Sprintf("SFTP-изоляция (chroot) для %s", username), string(payload))
+}
+
+// DisableSFTPChroot submits a task to remove SFTP chroot isolation for a user.
+func (s *Service) DisableSFTPChroot(ctx context.Context, serverID, username string) (*db.TaskRecord, error) {
+	if err := ValidateUsername(username); err != nil {
+		return nil, err
+	}
+	payload, _ := json.Marshal(SFTPChrootRequest{
+		ServerID: serverID,
+		Username: username,
+	})
+	return s.engine.Submit(serverID, "user_disable_sftp_chroot", fmt.Sprintf("Отключение SFTP-изоляции для %s", username), string(payload))
+}
+
+// SetUserPassword submits a task to update a system/SFTP user's password via chpasswd stdin.
+func (s *Service) SetUserPassword(ctx context.Context, serverID, username, password string) (*db.TaskRecord, error) {
+	if err := ValidateUsername(username); err != nil {
+		return nil, err
+	}
+	if username == "root" {
+		return nil, fmt.Errorf("изменение пароля root через модуль пользователей сайтов запрещено")
+	}
+	if len(password) < 8 {
+		return nil, fmt.Errorf("пароль должен содержать минимум 8 символов")
+	}
+	if strings.ContainsAny(password, "\r\n") {
+		return nil, fmt.Errorf("пароль содержит недопустимые символы перевода строки")
+	}
+
+	encPass := password
+	if s.Vault != nil {
+		var err error
+		encPass, err = s.Vault.Encrypt(password)
+		if err != nil {
+			return nil, fmt.Errorf("ошибка шифрования пароля: %w", err)
+		}
+		encPass = "vault:" + encPass
+	}
+
+	payload, _ := json.Marshal(SetUserPasswordRequest{
+		ServerID: serverID,
+		Username: username,
+		Password: encPass,
+	})
+	return s.engine.Submit(serverID, "user_set_password", fmt.Sprintf("Установка пароля для %s", username), string(payload))
+}
+
+func (s *Service) handleEnableSFTPChrootTask(ctx context.Context, task *db.TaskRecord, logger tasks.TaskLogger) (string, error) {
+	var req SFTPChrootRequest
+	if err := json.Unmarshal([]byte(task.Payload), &req); err != nil {
+		return "", fmt.Errorf("ошибка парсинга payload: %w", err)
+	}
+	if err := ValidateUsername(req.Username); err != nil {
+		return "", err
+	}
+	if err := ssh.ValidateRemotePath(req.ChrootDir, false); err != nil {
+		return "", err
+	}
+
+	client, _, err := s.GetSSHClient(ctx, req.ServerID)
+	if err != nil {
+		return "", err
+	}
+
+	safeUser := ssh.ShellEscape(req.Username)
+	safeChroot := ssh.ShellEscape(req.ChrootDir)
+
+	logger.SetStep("Настройка прав chroot-каталога (root:root 755)", 25)
+	prepCmd := fmt.Sprintf("mkdir -p %s && chown root:root %s && chmod 755 %s", safeChroot, safeChroot, safeChroot)
+	if req.WritableSubdir != "" {
+		subPath := path.Join(req.ChrootDir, req.WritableSubdir)
+		safeSub := ssh.ShellEscape(subPath)
+		prepCmd += fmt.Sprintf(" && mkdir -p %s && chown %s:%s %s && chmod 755 %s", safeSub, safeUser, safeUser, safeSub, safeSub)
+	}
+	// Restrict interactive shell login for chrooted SFTP-only account.
+	prepCmd += fmt.Sprintf(" && NOLOGIN=$(command -v nologin || echo /usr/sbin/nologin) && usermod -s \"$NOLOGIN\" %s", safeUser)
+	if out, err := s.execCmd(ctx, client, prepCmd, true); err != nil {
+		return "", fmt.Errorf("ошибка подготовки каталога/пользователя: %w\n%s", err, out)
+	}
+
+	logger.SetStep("Запись конфигурации OpenSSH Match User", 60)
+	confPath := fmt.Sprintf("/etc/ssh/sshd_config.d/tamestack_sftp_%s.conf", req.Username)
+	confBody := fmt.Sprintf(`# Managed by TameStack: SFTP Chroot for %s
+Match User %s
+    ChrootDirectory %s
+    ForceCommand internal-sftp
+    AllowTcpForwarding no
+    X11Forwarding no
+    PermitTunnel no
+`, req.Username, req.Username, req.ChrootDir)
+
+	if err := client.WriteFile(ctx, confPath, []byte(confBody), 0600); err != nil {
+		return "", fmt.Errorf("ошибка записи %s: %w", confPath, err)
+	}
+
+	logger.SetStep("Проверка конфигурации sshd -t и перезапуск", 85)
+	// Ensure sshd_config includes sshd_config.d/*.conf; if sshd -t fails, roll back immediately.
+	testAndReload := fmt.Sprintf(`if ! grep -qE '^\s*Include\s+/etc/ssh/sshd_config\.d/\*\.conf' /etc/ssh/sshd_config 2>/dev/null; then
+    mkdir -p /etc/ssh/sshd_config.d
+    printf '\nInclude /etc/ssh/sshd_config.d/*.conf\n' >> /etc/ssh/sshd_config
+fi
+if ! sshd -t; then
+    rm -f %s
+    exit 1
+fi
+systemctl reload ssh 2>/dev/null || systemctl reload sshd 2>/dev/null || service ssh reload 2>/dev/null || true`, ssh.ShellEscape(confPath))
+
+	if out, err := s.execCmd(ctx, client, testAndReload, true); err != nil {
+		return "", fmt.Errorf("ошибка проверки sshd -t (изменения откатаны): %w\n%s", err, out)
+	}
+
+	logger.SetStep("Готово", 100)
+	return fmt.Sprintf("SFTP-изоляция (chroot: %s) включена для %s", req.ChrootDir, req.Username), nil
+}
+
+func (s *Service) handleDisableSFTPChrootTask(ctx context.Context, task *db.TaskRecord, logger tasks.TaskLogger) (string, error) {
+	var req SFTPChrootRequest
+	if err := json.Unmarshal([]byte(task.Payload), &req); err != nil {
+		return "", fmt.Errorf("ошибка парсинга payload: %w", err)
+	}
+	if err := ValidateUsername(req.Username); err != nil {
+		return "", err
+	}
+
+	client, _, err := s.GetSSHClient(ctx, req.ServerID)
+	if err != nil {
+		return "", err
+	}
+
+	confPath := fmt.Sprintf("/etc/ssh/sshd_config.d/tamestack_sftp_%s.conf", req.Username)
+	logger.SetStep("Удаление правила SFTP chroot и перезапуск sshd", 60)
+	cmd := fmt.Sprintf("rm -f %s && sshd -t && (systemctl reload ssh 2>/dev/null || systemctl reload sshd 2>/dev/null || service ssh reload 2>/dev/null || true)", ssh.ShellEscape(confPath))
+	if out, err := s.execCmd(ctx, client, cmd, true); err != nil {
+		return "", fmt.Errorf("ошибка отключения SFTP chroot: %w\n%s", err, out)
+	}
+
+	logger.SetStep("Готово", 100)
+	return fmt.Sprintf("SFTP-изоляция для %s отключена", req.Username), nil
+}
+
+func (s *Service) handleSetUserPasswordTask(ctx context.Context, task *db.TaskRecord, logger tasks.TaskLogger) (string, error) {
+	var req SetUserPasswordRequest
+	if err := json.Unmarshal([]byte(task.Payload), &req); err != nil {
+		return "", fmt.Errorf("ошибка парсинга payload: %w", err)
+	}
+	if err := ValidateUsername(req.Username); err != nil {
+		return "", err
+	}
+	pass := req.Password
+	if strings.HasPrefix(pass, "vault:") && s.Vault != nil {
+		plain, err := s.Vault.Decrypt(strings.TrimPrefix(pass, "vault:"))
+		if err != nil {
+			return "", fmt.Errorf("ошибка расшифровки пароля: %w", err)
+		}
+		pass = plain
+	}
+	if strings.ContainsAny(pass, "\r\n") {
+		return "", fmt.Errorf("пароль содержит перевод строки")
+	}
+
+	client, _, err := s.GetSSHClient(ctx, req.ServerID)
+	if err != nil {
+		return "", err
+	}
+
+	logger.SetStep("Обновление пароля через chpasswd", 60)
+	cmd := client.SudoHeader() + "$SUDO chpasswd\n"
+	_, stderr, code, err := client.ExecStdin(ctx, cmd, strings.NewReader(req.Username+":"+pass+"\n"))
+	if err != nil || code != 0 {
+		return "", fmt.Errorf("ошибка chpasswd: %s %v", strings.TrimSpace(string(stderr)), err)
+	}
+
+	logger.SetStep("Готово", 100)
+	return fmt.Sprintf("Пароль для %s успешно обновлён", req.Username), nil
 }

@@ -215,6 +215,64 @@ export namespace apps {
 		}
 	}
 	
+	export class AppProcessConfig {
+	    site_id: string;
+	    runtime: string;
+	    working_dir: string;
+	    exec_start: string;
+	    user: string;
+	    port: number;
+	    env_vars: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new AppProcessConfig(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.site_id = source["site_id"];
+	        this.runtime = source["runtime"];
+	        this.working_dir = source["working_dir"];
+	        this.exec_start = source["exec_start"];
+	        this.user = source["user"];
+	        this.port = source["port"];
+	        this.env_vars = source["env_vars"];
+	    }
+	}
+	export class AppProcessStatus {
+	    configured: boolean;
+	    unit_name: string;
+	    status: string;
+	    pid: string;
+	    memory: string;
+	    runtime: string;
+	    working_dir: string;
+	    exec_start: string;
+	    user: string;
+	    port: number;
+	    env_vars: string;
+	    recent_logs: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new AppProcessStatus(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.configured = source["configured"];
+	        this.unit_name = source["unit_name"];
+	        this.status = source["status"];
+	        this.pid = source["pid"];
+	        this.memory = source["memory"];
+	        this.runtime = source["runtime"];
+	        this.working_dir = source["working_dir"];
+	        this.exec_start = source["exec_start"];
+	        this.user = source["user"];
+	        this.port = source["port"];
+	        this.env_vars = source["env_vars"];
+	        this.recent_logs = source["recent_logs"];
+	    }
+	}
 	
 	export class ArtisanCommandResult {
 	    command: string;
@@ -505,6 +563,33 @@ export namespace chat {
 	        this.is_default = source["is_default"];
 	        this.default_model = source["default_model"];
 	        this.system_prompt = source["system_prompt"];
+	    }
+	}
+
+}
+
+export namespace context {
+	
+	export class UIContext {
+	    active_tab: string;
+	    active_tab_title: string;
+	    selected_server_id?: string;
+	    selected_server_name?: string;
+	    selected_server_host?: string;
+	    screen_summary?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new UIContext(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.active_tab = source["active_tab"];
+	        this.active_tab_title = source["active_tab_title"];
+	        this.selected_server_id = source["selected_server_id"];
+	        this.selected_server_name = source["selected_server_name"];
+	        this.selected_server_host = source["selected_server_host"];
+	        this.screen_summary = source["screen_summary"];
 	    }
 	}
 
@@ -1444,6 +1529,121 @@ export namespace db {
 	        this.started_at = this.convertValues(source["started_at"], null);
 	        this.completed_at = this.convertValues(source["completed_at"], null);
 	        this.created_at = this.convertValues(source["created_at"], null);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+
+}
+
+export namespace dns {
+	
+	export class DNSRecord {
+	    name: string;
+	    ttl: number;
+	    type: string;
+	    priority: number;
+	    value: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new DNSRecord(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.ttl = source["ttl"];
+	        this.type = source["type"];
+	        this.priority = source["priority"];
+	        this.value = source["value"];
+	    }
+	}
+	export class DNSZoneSummary {
+	    domain: string;
+	    file_path: string;
+	    records_count: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new DNSZoneSummary(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.domain = source["domain"];
+	        this.file_path = source["file_path"];
+	        this.records_count = source["records_count"];
+	    }
+	}
+	export class DNSStatus {
+	    installed: boolean;
+	    active: boolean;
+	    service_name: string;
+	    zones: DNSZoneSummary[];
+	
+	    static createFrom(source: any = {}) {
+	        return new DNSStatus(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.installed = source["installed"];
+	        this.active = source["active"];
+	        this.service_name = source["service_name"];
+	        this.zones = this.convertValues(source["zones"], DNSZoneSummary);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class DNSZoneDetail {
+	    domain: string;
+	    file_path: string;
+	    serial: number;
+	    records: DNSRecord[];
+	    raw_content: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new DNSZoneDetail(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.domain = source["domain"];
+	        this.file_path = source["file_path"];
+	        this.serial = source["serial"];
+	        this.records = this.convertValues(source["records"], DNSRecord);
+	        this.raw_content = source["raw_content"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -2770,6 +2970,113 @@ export namespace logs {
 	        this.truncated = source["truncated"];
 	        this.size_bytes = source["size_bytes"];
 	    }
+	}
+
+}
+
+export namespace mail {
+	
+	export class MailAlias {
+	    source: string;
+	    destination: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new MailAlias(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.source = source["source"];
+	        this.destination = source["destination"];
+	    }
+	}
+	export class MailDomain {
+	    domain: string;
+	    dkim_selector: string;
+	    dkim_record: string;
+	    spf_record: string;
+	    dmarc_record: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new MailDomain(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.domain = source["domain"];
+	        this.dkim_selector = source["dkim_selector"];
+	        this.dkim_record = source["dkim_record"];
+	        this.spf_record = source["spf_record"];
+	        this.dmarc_record = source["dmarc_record"];
+	    }
+	}
+	export class MailboxItem {
+	    email: string;
+	    domain: string;
+	    local_part: string;
+	    maildir: string;
+	    quota_mb: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new MailboxItem(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.email = source["email"];
+	        this.domain = source["domain"];
+	        this.local_part = source["local_part"];
+	        this.maildir = source["maildir"];
+	        this.quota_mb = source["quota_mb"];
+	    }
+	}
+	export class MailStatus {
+	    postfix_installed: boolean;
+	    postfix_active: boolean;
+	    dovecot_installed: boolean;
+	    dovecot_active: boolean;
+	    opendkim_installed: boolean;
+	    opendkim_active: boolean;
+	    hostname: string;
+	    domains: MailDomain[];
+	    mailboxes: MailboxItem[];
+	    aliases: MailAlias[];
+	
+	    static createFrom(source: any = {}) {
+	        return new MailStatus(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.postfix_installed = source["postfix_installed"];
+	        this.postfix_active = source["postfix_active"];
+	        this.dovecot_installed = source["dovecot_installed"];
+	        this.dovecot_active = source["dovecot_active"];
+	        this.opendkim_installed = source["opendkim_installed"];
+	        this.opendkim_active = source["opendkim_active"];
+	        this.hostname = source["hostname"];
+	        this.domains = this.convertValues(source["domains"], MailDomain);
+	        this.mailboxes = this.convertValues(source["mailboxes"], MailboxItem);
+	        this.aliases = this.convertValues(source["aliases"], MailAlias);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 
 }
@@ -5310,6 +5617,8 @@ export namespace users {
 	    home_dir: string;
 	    shell: string;
 	    is_system: boolean;
+	    sftp_chroot: boolean;
+	    chroot_dir?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new SystemUserInfo(source);
@@ -5323,6 +5632,8 @@ export namespace users {
 	        this.home_dir = source["home_dir"];
 	        this.shell = source["shell"];
 	        this.is_system = source["is_system"];
+	        this.sftp_chroot = source["sftp_chroot"];
+	        this.chroot_dir = source["chroot_dir"];
 	    }
 	}
 

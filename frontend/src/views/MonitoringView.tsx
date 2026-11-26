@@ -53,6 +53,8 @@ export const MonitoringView: React.FC<MonitoringViewProps> = ({
   const liveIntervalRef = useRef<any>(null);
   const serverRef = useRef(selectedServerId);
   serverRef.current = selectedServerId;
+  const hasMetricsRef = useRef(false);
+  hasMetricsRef.current = metrics !== null;
 
   // Load sites for the selected server
   useEffect(() => {
@@ -68,7 +70,7 @@ export const MonitoringView: React.FC<MonitoringViewProps> = ({
     const serverID = selectedServerId;
     try {
       setIsMetricsLoading(true);
-      if (!metrics) setPageLoading(true, t('monitoring.collectingMetrics'));
+      if (!hasMetricsRef.current) setPageLoading(true, t('monitoring.collectingMetrics'));
       const data = await GetRealtimeSystemMetrics(serverID);
       if (serverID !== serverRef.current) return;
       setMetrics(data);

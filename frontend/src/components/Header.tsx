@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, RefreshCw, Search, Lock, Unlock, Menu, Loader2 } from 'lucide-react';
+import { Plus, RefreshCw, Search, Lock, Unlock, Menu, Loader2, Sparkles } from 'lucide-react';
 import { NavigationTab } from '../types';
 import { useTranslation } from '../i18n/LanguageContext';
 import { useServer } from '../context/ServerContext';
@@ -14,6 +14,7 @@ interface HeaderProps {
   runningTasksCount: number;
   isRefreshing: boolean;
   onOpenCommandPalette?: () => void;
+  onOpenAICopilot?: () => void;
   vaultStatus?: main.VaultStatusInfo | null;
   onOpenUnlockVault?: () => void;
   onLockVault?: () => void;
@@ -28,6 +29,7 @@ export const Header: React.FC<HeaderProps> = ({
   runningTasksCount,
   isRefreshing,
   onOpenCommandPalette,
+  onOpenAICopilot,
   vaultStatus,
   onOpenUnlockVault,
   onLockVault,
@@ -81,6 +83,22 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="hidden lg:inline">{t('header.searchPlaceholder')}</span>
             <kbd className="hidden xl:inline px-1.5 py-0.5 text-[10px] font-mono font-semibold bg-slate-800 text-slate-400 border border-slate-700 rounded">
               Ctrl+K
+            </kbd>
+          </button>
+        )}
+
+        {/* Global AI Copilot (Ctrl+I) */}
+        {onOpenAICopilot && (
+          <button
+            onClick={onOpenAICopilot}
+            className="h-8 flex items-center gap-1.5 px-3 rounded-lg bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 hover:text-white hover:bg-indigo-500/25 active:scale-[0.97] transition-all duration-100 ease-out text-xs font-medium shadow-xs cursor-pointer shrink-0"
+            title={language === 'en' ? 'Open AI Copilot (Ctrl+I)' : 'Открыть AI-помощника (Ctrl+I)'}
+            aria-label={language === 'en' ? 'Open AI Copilot (Ctrl+I)' : 'Открыть AI-помощника (Ctrl+I)'}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+            <span className="hidden sm:inline">AI</span>
+            <kbd className="hidden xl:inline px-1.5 py-0.5 text-[10px] font-mono font-semibold bg-indigo-950/80 text-indigo-300 border border-indigo-500/30 rounded">
+              Ctrl+I
             </kbd>
           </button>
         )}

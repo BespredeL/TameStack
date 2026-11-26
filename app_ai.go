@@ -136,6 +136,11 @@ func (a *App) AIListMessages(convID string) ([]*db.AIMessageRecord, error) {
 
 // AIStreamMessage initiates an asynchronous streaming chat generation with Wails events.
 func (a *App) AIStreamMessage(convID string, userPrompt string) error {
+	return a.AIStreamMessageWithContext(convID, userPrompt, nil)
+}
+
+// AIStreamMessageWithContext initiates streaming chat generation with optional UI screen context.
+func (a *App) AIStreamMessageWithContext(convID string, userPrompt string, uiCtx *aiContext.UIContext) error {
 	if err := a.requireUnlocked(); err != nil {
 		return err
 	}
@@ -147,7 +152,7 @@ func (a *App) AIStreamMessage(convID string, userPrompt string) error {
 		defer a.aiStreamingConvs.Delete(convID)
 
 		var errEmitted bool
-		_, err := a.aiChatService.StreamMessage(a.ctx, convID, userPrompt, func(chunk domain.StreamChunk) {
+		_, err := a.aiChatService.StreamMessageWithContext(a.ctx, convID, userPrompt, uiCtx, func(chunk domain.StreamChunk) {
 			if chunk.Error != nil {
 				errEmitted = true
 				wailsRuntime.EventsEmit(a.ctx, "ai:stream:error", map[string]any{

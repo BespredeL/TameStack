@@ -2,12 +2,29 @@ package users
 
 // SystemUserInfo contains basic user account metadata.
 type SystemUserInfo struct {
+	Username   string `json:"username"`
+	UID        int    `json:"uid"`
+	GID        int    `json:"gid"`
+	HomeDir    string `json:"home_dir"`
+	Shell      string `json:"shell"`
+	IsSystem   bool   `json:"is_system"`
+	SFTPChroot bool   `json:"sftp_chroot"`
+	ChrootDir  string `json:"chroot_dir,omitempty"`
+}
+
+// SFTPChrootRequest holds input to enable or disable SFTP chroot isolation for a user.
+type SFTPChrootRequest struct {
+	ServerID  string `json:"server_id"`
+	Username  string `json:"username"`
+	ChrootDir string `json:"chroot_dir"`
+	WritableSubdir string `json:"writable_subdir,omitempty"`
+}
+
+// SetUserPasswordRequest holds input to set a user's password via chpasswd stdin.
+type SetUserPasswordRequest struct {
+	ServerID string `json:"server_id"`
 	Username string `json:"username"`
-	UID      int    `json:"uid"`
-	GID      int    `json:"gid"`
-	HomeDir  string `json:"home_dir"`
-	Shell    string `json:"shell"`
-	IsSystem bool   `json:"is_system"`
+	Password string `json:"password"`
 }
 
 // CreateSiteUserRequest holds input to create an isolated website user.

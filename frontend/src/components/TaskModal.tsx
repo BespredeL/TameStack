@@ -21,6 +21,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, onClose }) => {
   const [currentTask, setCurrentTask] = useState<TaskRecord | null>(task);
   const [isCancelling, setIsCancelling] = useState(false);
   const logContainerRef = useRef<HTMLDivElement>(null);
+  const nextTempLogIdRef = useRef<number>(-1);
 
   const formatTimeSafe = (dateStr?: string | null) => {
     if (!dateStr || dateStr.startsWith('0001-01-01')) return '';
@@ -44,10 +45,11 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, onClose }) => {
     // Listen to real-time events for this task
     const cleanupLog = EventsOn('task:log', (data: any) => {
       if (data && data.task_id === task.id) {
+        const tempId = nextTempLogIdRef.current--;
         setLogs((prev) => [
           ...prev,
           {
-            id: Date.now(),
+            id: tempId,
             task_id: data.task_id,
             level: data.level,
             message: data.message,

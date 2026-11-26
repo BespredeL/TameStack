@@ -118,6 +118,10 @@ export function AIStreamMessage(arg1, arg2) {
   return window['go']['main']['App']['AIStreamMessage'](arg1, arg2);
 }
 
+export function AIStreamMessageWithContext(arg1, arg2, arg3) {
+  return window['go']['main']['App']['AIStreamMessageWithContext'](arg1, arg2, arg3);
+}
+
 export function AITestProvider(arg1) {
   return window['go']['main']['App']['AITestProvider'](arg1);
 }
@@ -144,6 +148,10 @@ export function AddFileExclusion(arg1, arg2, arg3) {
 
 export function AddFirewallRule(arg1) {
   return window['go']['main']['App']['AddFirewallRule'](arg1);
+}
+
+export function AddMailDomain(arg1, arg2) {
+  return window['go']['main']['App']['AddMailDomain'](arg1, arg2);
 }
 
 export function AddServer(arg1) {
@@ -234,8 +242,16 @@ export function CompareFileSnapshot(arg1) {
   return window['go']['main']['App']['CompareFileSnapshot'](arg1);
 }
 
+export function ConfigureAppProcess(arg1, arg2) {
+  return window['go']['main']['App']['ConfigureAppProcess'](arg1, arg2);
+}
+
 export function ConfigureQueueWorker(arg1, arg2) {
   return window['go']['main']['App']['ConfigureQueueWorker'](arg1, arg2);
+}
+
+export function ControlAppProcess(arg1, arg2) {
+  return window['go']['main']['App']['ControlAppProcess'](arg1, arg2);
 }
 
 export function ControlDatabaseService(arg1, arg2, arg3) {
@@ -262,6 +278,10 @@ export function CreateBackup(arg1) {
   return window['go']['main']['App']['CreateBackup'](arg1);
 }
 
+export function CreateDNSZone(arg1, arg2, arg3) {
+  return window['go']['main']['App']['CreateDNSZone'](arg1, arg2, arg3);
+}
+
 export function CreateDatabase(arg1) {
   return window['go']['main']['App']['CreateDatabase'](arg1);
 }
@@ -272,6 +292,10 @@ export function CreateDatabaseUser(arg1) {
 
 export function CreateFileSnapshot(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['CreateFileSnapshot'](arg1, arg2, arg3, arg4);
+}
+
+export function CreateMailbox(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['CreateMailbox'](arg1, arg2, arg3, arg4);
 }
 
 export function CreatePHPPool(arg1) {
@@ -290,6 +314,10 @@ export function CreateSiteUser(arg1, arg2, arg3) {
   return window['go']['main']['App']['CreateSiteUser'](arg1, arg2, arg3);
 }
 
+export function DeleteAppProcess(arg1) {
+  return window['go']['main']['App']['DeleteAppProcess'](arg1);
+}
+
 export function DeleteBackup(arg1, arg2) {
   return window['go']['main']['App']['DeleteBackup'](arg1, arg2);
 }
@@ -300,6 +328,10 @@ export function DeleteCertbotCertificate(arg1, arg2) {
 
 export function DeleteCronJob(arg1) {
   return window['go']['main']['App']['DeleteCronJob'](arg1);
+}
+
+export function DeleteDNSZone(arg1, arg2) {
+  return window['go']['main']['App']['DeleteDNSZone'](arg1, arg2);
 }
 
 export function DeleteDatabase(arg1, arg2, arg3) {
@@ -330,6 +362,14 @@ export function DeleteFirewallRule(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['DeleteFirewallRule'](arg1, arg2, arg3, arg4);
 }
 
+export function DeleteMailAlias(arg1, arg2) {
+  return window['go']['main']['App']['DeleteMailAlias'](arg1, arg2);
+}
+
+export function DeleteMailbox(arg1, arg2) {
+  return window['go']['main']['App']['DeleteMailbox'](arg1, arg2);
+}
+
 export function DeletePHPPool(arg1, arg2, arg3) {
   return window['go']['main']['App']['DeletePHPPool'](arg1, arg2, arg3);
 }
@@ -356,6 +396,10 @@ export function DeleteSite(arg1, arg2) {
 
 export function DetectPHPHandlers(arg1) {
   return window['go']['main']['App']['DetectPHPHandlers'](arg1);
+}
+
+export function DisableSFTPChroot(arg1, arg2) {
+  return window['go']['main']['App']['DisableSFTPChroot'](arg1, arg2);
 }
 
 export function DiscoverBackups(arg1) {
@@ -394,12 +438,20 @@ export function EnableDatabaseEncryption(arg1) {
   return window['go']['main']['App']['EnableDatabaseEncryption'](arg1);
 }
 
+export function EnableSFTPChroot(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['EnableSFTPChroot'](arg1, arg2, arg3, arg4);
+}
+
 export function ExportSupportBundle() {
   return window['go']['main']['App']['ExportSupportBundle']();
 }
 
 export function FixAppPermissions(arg1) {
   return window['go']['main']['App']['FixAppPermissions'](arg1);
+}
+
+export function GetAppProcessStatus(arg1) {
+  return window['go']['main']['App']['GetAppProcessStatus'](arg1);
 }
 
 export function GetAppSettings() {
@@ -416,6 +468,14 @@ export function GetCertbotConfig(arg1) {
 
 export function GetCertbotStatus(arg1) {
   return window['go']['main']['App']['GetCertbotStatus'](arg1);
+}
+
+export function GetDNSStatus(arg1) {
+  return window['go']['main']['App']['GetDNSStatus'](arg1);
+}
+
+export function GetDNSZone(arg1, arg2) {
+  return window['go']['main']['App']['GetDNSZone'](arg1, arg2);
 }
 
 export function GetDashboardStats() {
@@ -452,6 +512,10 @@ export function GetFirewallStatus(arg1) {
 
 export function GetLatestServerInventory(arg1) {
   return window['go']['main']['App']['GetLatestServerInventory'](arg1);
+}
+
+export function GetMailStatus(arg1) {
+  return window['go']['main']['App']['GetMailStatus'](arg1);
 }
 
 export function GetNetworkOverview(arg1) {
@@ -554,6 +618,10 @@ export function InspectWebServers(arg1) {
   return window['go']['main']['App']['InspectWebServers'](arg1);
 }
 
+export function InstallBIND9(arg1) {
+  return window['go']['main']['App']['InstallBIND9'](arg1);
+}
+
 export function InstallCertbot(arg1) {
   return window['go']['main']['App']['InstallCertbot'](arg1);
 }
@@ -568,6 +636,10 @@ export function InstallFail2ban(arg1) {
 
 export function InstallFirewall(arg1, arg2) {
   return window['go']['main']['App']['InstallFirewall'](arg1, arg2);
+}
+
+export function InstallMailStack(arg1, arg2) {
+  return window['go']['main']['App']['InstallMailStack'](arg1, arg2);
 }
 
 export function InstallPHPExtensions(arg1, arg2, arg3) {
@@ -874,6 +946,10 @@ export function SaveCronJob(arg1) {
   return window['go']['main']['App']['SaveCronJob'](arg1);
 }
 
+export function SaveDNSZoneRecords(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SaveDNSZoneRecords'](arg1, arg2, arg3);
+}
+
 export function SaveDatabaseConfig(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['SaveDatabaseConfig'](arg1, arg2, arg3, arg4);
 }
@@ -884,6 +960,10 @@ export function SaveFail2banJail(arg1) {
 
 export function SaveFileSecuritySignature(arg1) {
   return window['go']['main']['App']['SaveFileSecuritySignature'](arg1);
+}
+
+export function SaveMailAlias(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SaveMailAlias'](arg1, arg2, arg3);
 }
 
 export function SavePHPIni(arg1, arg2, arg3) {
@@ -944,6 +1024,10 @@ export function SetServerMode(arg1, arg2) {
 
 export function SetServerSudoPassword(arg1, arg2) {
   return window['go']['main']['App']['SetServerSudoPassword'](arg1, arg2);
+}
+
+export function SetUserPassword(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SetUserPassword'](arg1, arg2, arg3);
 }
 
 export function SimulateInstallPackages(arg1, arg2) {

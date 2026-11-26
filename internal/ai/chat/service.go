@@ -197,6 +197,17 @@ func (s *Service) StreamMessage(
 	userPrompt string,
 	onChunk func(chunk domain.StreamChunk),
 ) (*db.AIMessageRecord, error) {
+	return s.StreamMessageWithContext(ctx, convID, userPrompt, nil, onChunk)
+}
+
+// StreamMessageWithContext sends a user message with optional UI screen context and streams assistant tokens.
+func (s *Service) StreamMessageWithContext(
+	ctx context.Context,
+	convID string,
+	userPrompt string,
+	uiCtx *aiContext.UIContext,
+	onChunk func(chunk domain.StreamChunk),
+) (*db.AIMessageRecord, error) {
 	conv, err := s.database.GetAIConversation(ctx, convID)
 	if err != nil || conv == nil {
 		return nil, fmt.Errorf("conversation not found: %s", convID)
@@ -231,6 +242,7 @@ func (s *Service) StreamMessage(
 		CustomPrompt:   conv.SystemPrompt,
 		IncludeMemory:  true,
 		LanguageLocale: appLang,
+		UIContext:      uiCtx,
 	})
 
 	domainMsgs := make([]domain.Message, 0, len(history)+1)

@@ -33,8 +33,10 @@ import (
 	"tamestack/internal/modules/cron"
 	"tamestack/internal/modules/database"
 	"tamestack/internal/modules/docker"
+	"tamestack/internal/modules/dns"
 	"tamestack/internal/modules/files"
 	"tamestack/internal/modules/logs"
+	"tamestack/internal/modules/mail"
 	"tamestack/internal/modules/packages"
 	"tamestack/internal/modules/php"
 	"tamestack/internal/modules/security"
@@ -82,6 +84,8 @@ type App struct {
 	securityService   *security.Service
 	terminalService   *terminal.Service
 	appsService       *apps.Service
+	mailService       *mail.Service
+	dnsService        *dns.Service
 	aiChatService     *chat.Service
 	aiMemoryService   *memory.Service
 	siteDiagWf        *workflows.SiteDiagnosticsWorkflow
@@ -176,6 +180,8 @@ func (a *App) bootstrapServices(dbPath string) error {
 	securityService := security.NewService(cfg, sqliteDB, vault, pool, engine)
 	terminalService := terminal.NewService(cfg, sqliteDB, vault, pool)
 	appsService := apps.NewService(cfg, sqliteDB, vault, pool, engine)
+	mailService := mail.NewService(cfg, sqliteDB, vault, pool, engine)
+	dnsService := dns.NewService(cfg, sqliteDB, vault, pool, engine)
 
 	siteDiagWf := workflows.NewSiteDiagnosticsWorkflow(sqliteDB, siteService, securityService, vault, pool, cfg.KnownHostsPath)
 	secAuditWf := workflows.NewSecurityAuditWorkflow(sqliteDB, securityService, vault, pool, cfg.KnownHostsPath)
@@ -227,6 +233,8 @@ func (a *App) bootstrapServices(dbPath string) error {
 	a.securityService = securityService
 	a.terminalService = terminalService
 	a.appsService = appsService
+	a.mailService = mailService
+	a.dnsService = dnsService
 	a.aiChatService = aiChatService
 	a.aiMemoryService = aiMemoryService
 	a.siteDiagWf = siteDiagWf

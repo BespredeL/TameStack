@@ -33,6 +33,11 @@ func TestLockedAppRefusesDataDependentRPC(t *testing.T) {
 	check("ListSites", func() error { _, err := app.ListSites("srv-1"); return err })
 	check("GetDashboardStats", func() error { _, err := app.GetDashboardStats(); return err })
 	check("GetAppSettings", func() error { _, err := app.GetAppSettings(); return err })
+	check("GetMailStatus", func() error { _, err := app.GetMailStatus("srv-1"); return err })
+	check("GetDNSStatus", func() error { _, err := app.GetDNSStatus("srv-1"); return err })
+	check("EnableSFTPChroot", func() error { _, err := app.EnableSFTPChroot("srv-1", "u", "/var/www/u", ""); return err })
+	check("GetAppProcessStatus", func() error { _, err := app.GetAppProcessStatus("site-1"); return err })
+	check("AIStreamMessageWithContext", func() error { return app.AIStreamMessageWithContext("c1", "hi", nil) })
 
 	// Slice-only RPCs cannot report an error; they must come back empty.
 	if tools := app.AIListTools(); tools != nil {

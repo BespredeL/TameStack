@@ -242,6 +242,33 @@ func (a *App) ReadLaravelLog(siteID string, maxLines int) (string, error) {
 	})
 }
 
+func (a *App) GetAppProcessStatus(siteID string) (*apps.AppProcessStatus, error) {
+	return withLock(a, func() (*apps.AppProcessStatus, error) {
+		return a.appsService.GetAppProcessStatus(a.ctx, siteID)
+	})
+}
+
+func (a *App) ConfigureAppProcess(siteID string, cfg apps.AppProcessConfig) error {
+	if err := a.requireUnlocked(); err != nil {
+		return err
+	}
+	return a.appsService.ConfigureAppProcess(a.ctx, siteID, cfg)
+}
+
+func (a *App) ControlAppProcess(siteID, action string) error {
+	if err := a.requireUnlocked(); err != nil {
+		return err
+	}
+	return a.appsService.ControlAppProcess(a.ctx, siteID, action)
+}
+
+func (a *App) DeleteAppProcess(siteID string) error {
+	if err := a.requireUnlocked(); err != nil {
+		return err
+	}
+	return a.appsService.DeleteAppProcess(a.ctx, siteID)
+}
+
 func (a *App) ToggleSiteStatus(siteID string, enable bool) error {
 	if err := a.requireUnlocked(); err != nil {
 		return err

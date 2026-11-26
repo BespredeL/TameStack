@@ -16,11 +16,14 @@ export const en: Translations = {
     databases: 'Databases',
     docker: 'Docker',
     ssl: 'SSL Certificates',
+    mail: 'Mail Server',
+    dns: 'DNS (BIND9)',
     filemanager: 'File Manager',
     cron: 'Cron Jobs',
     backups: 'Backups',
     monitoring: 'Monitoring',
     security: 'Security',
+    users: 'Users & SFTP',
     terminal: 'SSH Terminal',
     ai: 'AI Assistant',
     tasks: 'Tasks',
@@ -51,6 +54,18 @@ export const en: Translations = {
     dashboard: {
       title: 'Dashboard',
       subtitle: 'Overview of connected servers and infrastructure telemetry',
+    },
+    users: {
+      title: 'Users & SFTP',
+      subtitle: 'Manage site users, SFTP chroot isolation, and SSH keys',
+    },
+    mail: {
+      title: 'Mail Server',
+      subtitle: 'Postfix, Dovecot, OpenDKIM, mailboxes, aliases, and DKIM/SPF/DMARC',
+    },
+    dns: {
+      title: 'DNS Server (BIND9)',
+      subtitle: 'Manage local BIND9 master zones and resource records',
     },
     servers: {
       title: 'Servers',

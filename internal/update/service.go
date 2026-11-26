@@ -86,13 +86,22 @@ type Service struct {
 	cachedETag   string
 }
 
+func newHTTPClient() *http.Client {
+	if transport, ok := http.DefaultTransport.(*http.Transport); ok {
+		cloned := transport.Clone()
+		cloned.ResponseHeaderTimeout = 30 * time.Second
+		return &http.Client{Transport: cloned}
+	}
+	return &http.Client{Timeout: 60 * time.Second}
+}
+
 func NewService(repo, currentVersion string) *Service {
 	return &Service{
 		repo:       repo,
 		current:    currentVersion,
 		baseURL:    apiBase,
 		webBaseURL: "https://github.com",
-		client:     &http.Client{},
+		client:     newHTTPClient(),
 	}
 }
 

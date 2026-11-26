@@ -1,30 +1,34 @@
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { AddServerModal } from './components/AddServerModal';
 import { TaskModal } from './components/TaskModal';
 import { DashboardView } from './views/DashboardView';
 import { ServersView } from './views/ServersView';
-import { ProvisioningView } from './views/ProvisioningView';
-import { TasksView } from './views/TasksView';
-import { PHPView } from './views/PHPView';
-import { SitesView } from './views/SitesView';
-import { WebServersView } from './views/WebServersView';
-import { PackagesView } from './views/PackagesView';
-import { ServicesView } from './views/ServicesView';
-import { SSLView } from './views/SSLView';
-import { DatabasesView } from './views/DatabasesView';
-import { DockerView } from './views/DockerView';
-import { FileManagerView } from './views/FileManagerView';
-import { CronView } from './views/CronView';
-import { BackupsView } from './views/BackupsView';
-import { SecurityView } from './views/SecurityView';
-import { MonitoringView } from './views/MonitoringView';
-import { TerminalView } from './views/TerminalView';
-import { AIView } from './views/AIView';
-import { SettingsView } from './views/SettingsView';
+const ProvisioningView = lazy(() => import('./views/ProvisioningView').then((m) => ({ default: m.ProvisioningView })));
+const TasksView = lazy(() => import('./views/TasksView').then((m) => ({ default: m.TasksView })));
+const PHPView = lazy(() => import('./views/PHPView').then((m) => ({ default: m.PHPView })));
+const SitesView = lazy(() => import('./views/SitesView').then((m) => ({ default: m.SitesView })));
+const WebServersView = lazy(() => import('./views/WebServersView').then((m) => ({ default: m.WebServersView })));
+const PackagesView = lazy(() => import('./views/PackagesView').then((m) => ({ default: m.PackagesView })));
+const ServicesView = lazy(() => import('./views/ServicesView').then((m) => ({ default: m.ServicesView })));
+const SSLView = lazy(() => import('./views/SSLView').then((m) => ({ default: m.SSLView })));
+const MailView = lazy(() => import('./views/MailView').then((m) => ({ default: m.MailView })));
+const DNSView = lazy(() => import('./views/DNSView').then((m) => ({ default: m.DNSView })));
+const DatabasesView = lazy(() => import('./views/DatabasesView').then((m) => ({ default: m.DatabasesView })));
+const DockerView = lazy(() => import('./views/DockerView').then((m) => ({ default: m.DockerView })));
+const FileManagerView = lazy(() => import('./views/FileManagerView').then((m) => ({ default: m.FileManagerView })));
+const CronView = lazy(() => import('./views/CronView').then((m) => ({ default: m.CronView })));
+const BackupsView = lazy(() => import('./views/BackupsView').then((m) => ({ default: m.BackupsView })));
+const SecurityView = lazy(() => import('./views/SecurityView').then((m) => ({ default: m.SecurityView })));
+const UsersView = lazy(() => import('./views/UsersView').then((m) => ({ default: m.UsersView })));
+const MonitoringView = lazy(() => import('./views/MonitoringView').then((m) => ({ default: m.MonitoringView })));
+const TerminalView = lazy(() => import('./views/TerminalView').then((m) => ({ default: m.TerminalView })));
+const AIView = lazy(() => import('./views/AIView').then((m) => ({ default: m.AIView })));
+const SettingsView = lazy(() => import('./views/SettingsView').then((m) => ({ default: m.SettingsView })));
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { CommandPalette } from './components/common/CommandPalette';
+import { GlobalAICopilot } from './components/ai/GlobalAICopilot';
 import { UnlockVaultModal } from './components/UnlockVaultModal';
 import { LockScreen } from './components/LockScreen';
 import { DbUnlockScreen } from './components/DbUnlockScreen';
@@ -85,6 +89,7 @@ export const App: React.FC = () => {
   const [selectedTask, setSelectedTask] = useState<TaskRecord | null>(null);
   const [aiInitialContext, setAiInitialContext] = useState<{ serverId?: string; prompt?: string } | null>(null);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [isAICopilotOpen, setIsAICopilotOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
 
   // Global hotkeys listener (Ctrl+K, etc.)
@@ -109,6 +114,12 @@ export const App: React.FC = () => {
         if (isEditable) return;
         e.preventDefault();
         setIsCommandPaletteOpen((prev) => !prev);
+        return;
+      }
+      if (key === 'i') {
+        if (isEditable) return;
+        e.preventDefault();
+        setIsAICopilotOpen((prev) => !prev);
         return;
       }
 
@@ -282,6 +293,30 @@ export const App: React.FC = () => {
             onOpenAddServer={handleOpenAddServer}
           />
         );
+      case 'users':
+        return (
+          <UsersView
+            servers={servers}
+            onOpenTask={setSelectedTask}
+            onOpenAddServer={handleOpenAddServer}
+          />
+        );
+      case 'mail':
+        return (
+          <MailView
+            servers={servers}
+            onOpenTask={setSelectedTask}
+            onOpenAddServer={handleOpenAddServer}
+          />
+        );
+      case 'dns':
+        return (
+          <DNSView
+            servers={servers}
+            onOpenTask={setSelectedTask}
+            onOpenAddServer={handleOpenAddServer}
+          />
+        );
       case 'monitoring':
         return (
           <MonitoringView
@@ -370,6 +405,7 @@ export const App: React.FC = () => {
           totalCount={servers.length}
           mobileOpen={navOpen}
           onCloseMobile={() => setNavOpen(false)}
+          onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
         />
 
         {/* Main Content Area */}
@@ -382,6 +418,7 @@ export const App: React.FC = () => {
             runningTasksCount={runningTasksCount}
             isRefreshing={isRefreshing}
             onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+            onOpenAICopilot={() => setIsAICopilotOpen((prev) => !prev)}
             vaultStatus={vaultStatus}
             onOpenUnlockVault={() => {
               setVaultUnlockReason(null);
@@ -424,7 +461,9 @@ export const App: React.FC = () => {
                   </button>
                 </div>
               ) : (
-                renderActiveView()
+                <Suspense fallback={<div className="px-4 py-6 sm:px-8 text-sm text-slate-400">{t('common.loading')}</div>}>
+                  {renderActiveView()}
+                </Suspense>
               )}
             </ErrorBoundary>
           </main>
@@ -469,6 +508,14 @@ export const App: React.FC = () => {
         <ActiveTasksBanner
           tasks={tasks.filter((t) => t.status === 'running')}
           onOpenTask={setSelectedTask}
+        />
+
+        {/* Global Context-Aware AI Copilot Drawer */}
+        <GlobalAICopilot
+          isOpen={isAICopilotOpen}
+          onClose={() => setIsAICopilotOpen(false)}
+          currentTab={currentTab}
+          onOpenFullAI={() => setCurrentTab('ai')}
         />
       </div>
     </ServerProvider>
