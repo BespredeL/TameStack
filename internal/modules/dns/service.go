@@ -12,6 +12,7 @@ import (
 	"tamestack/internal/config"
 	"tamestack/internal/crypto"
 	"tamestack/internal/db"
+	"tamestack/internal/i18n"
 	"tamestack/internal/module"
 	"tamestack/internal/ssh"
 	"tamestack/internal/tasks"
@@ -26,33 +27,33 @@ var allowedRecordTypes = map[string]bool{
 func ValidateRecord(r DNSRecord) error {
 	name := strings.TrimSpace(r.Name)
 	if name == "" || strings.ContainsAny(name, " \t\r\n;\"'") {
-		return fmt.Errorf("недопустимое имя DNS-записи: %q", r.Name)
+		return i18n.Err("dns.invalidRecordName", i18n.Args{"name": r.Name})
 	}
 	typ := strings.ToUpper(strings.TrimSpace(r.Type))
 	if !allowedRecordTypes[typ] {
-		return fmt.Errorf("недопустимый тип DNS-записи: %s", r.Type)
+		return i18n.Err("dns.invalidRecordType", i18n.Args{"type": r.Type})
 	}
 	val := strings.TrimSpace(r.Value)
 	if val == "" || strings.ContainsAny(val, "\r\n") {
-		return fmt.Errorf("недопустимое значение DNS-записи для %s", name)
+		return i18n.Err("dns.invalidRecordValue", i18n.Args{"name": name})
 	}
 	if typ != "TXT" && strings.ContainsRune(val, ';') {
-		return fmt.Errorf("недопустимый символ ';' в значении записи %s", typ)
+		return i18n.Err("dns.semicolonInValue", i18n.Args{"type": typ})
 	}
 	switch typ {
 	case "A":
 		ip := net.ParseIP(val)
 		if ip == nil || ip.To4() == nil {
-			return fmt.Errorf("ожидается корректный IPv4-адрес для A-записи: %s", val)
+			return i18n.Err("dns.invalidIPv4", i18n.Args{"val": val})
 		}
 	case "AAAA":
 		ip := net.ParseIP(val)
 		if ip == nil || ip.To4() != nil {
-			return fmt.Errorf("ожидается корректный IPv6-адрес для AAAA-записи: %s", val)
+			return i18n.Err("dns.invalidIPv6", i18n.Args{"val": val})
 		}
 	case "MX":
 		if r.Priority < 0 || r.Priority > 65535 {
-			return fmt.Errorf("недопустимый приоритет MX: %d", r.Priority)
+			return i18n.Err("dns.invalidMXPriority", i18n.Args{"priority": r.Priority})
 		}
 	}
 	return nil
@@ -156,21 +157,21 @@ grep -E '^\s*zone\s+"' %s 2>/dev/null | sed -E 's/.*"([^"]+)".*/\1/' || true
 // InstallBIND9 submits a task to install and configure BIND9.
 func (s *Service) InstallBIND9(ctx context.Context, serverID string) (*db.TaskRecord, error) {
 	payload, _ := json.Marshal(map[string]string{"server_id": serverID})
-	return s.engine.Submit(serverID, "dns_install_bind9", "Установка DNS-сервера BIND9", string(payload))
+	return s.engine.Submit(serverID, "dns_install_bind9", i18n.Tr("dns.taskInstallTitle"), string(payload))
 }
 
 // CreateZone submits a task to create a new BIND9 master zone.
 func (s *Service) CreateZone(ctx context.Context, serverID, domain, serverIP string) (*db.TaskRecord, error) {
 	d := strings.TrimSpace(strings.ToLower(domain))
 	if err := ssh.ValidateHostToken(d); err != nil {
-		return nil, fmt.Errorf("недопустимый домен: %w", err)
+		return nil, i18n.Errf("dns.invalidDomain", nil, err)
 	}
 	ip := strings.TrimSpace(serverIP)
 	if ip != "" && net.ParseIP(ip) == nil {
-		return nil, fmt.Errorf("недопустимый IP-адрес сервера: %s", ip)
+		return nil, i18n.Err("dns.invalidServerIP", i18n.Args{"ip": ip})
 	}
 	payload, _ := json.Marshal(createZoneRequest{ServerID: serverID, Domain: d, ServerIP: ip})
-	return s.engine.Submit(serverID, "dns_create_zone", fmt.Sprintf("Создание DNS-зоны %s", d), string(payload))
+	return s.engine.Submit(serverID, "dns_create_zone", i18n.Tr("dns.taskCreateZoneTitle", i18n.Args{"domain": d}), string(payload))
 }
 
 // GetZone reads and parses a BIND9 zone file.
@@ -187,7 +188,7 @@ func (s *Service) GetZone(ctx context.Context, serverID, domain string) (*DNSZon
 	zPath := fmt.Sprintf("%s/db.%s", bp.zonesDir, d)
 	rawBytes, err := client.ReadFile(ctx, zPath)
 	if err != nil {
-		return nil, fmt.Errorf("ошибка чтения файла зоны %s: %w", zPath, err)
+		return nil, i18n.Errf("dns.readZoneError", i18n.Args{"path": zPath}, err)
 	}
 	raw := string(rawBytes)
 	records := ParseZoneRecords(raw)
@@ -211,7 +212,7 @@ func (s *Service) SaveZoneRecords(ctx context.Context, serverID, domain string, 
 		}
 	}
 	payload, _ := json.Marshal(saveZoneRequest{ServerID: serverID, Domain: d, Records: records})
-	return s.engine.Submit(serverID, "dns_save_zone", fmt.Sprintf("Обновление записей DNS-зоны %s", d), string(payload))
+	return s.engine.Submit(serverID, "dns_save_zone", i18n.Tr("dns.taskSaveZoneTitle", i18n.Args{"domain": d}), string(payload))
 }
 
 // DeleteZone submits a task to remove a BIND9 DNS zone.
@@ -221,7 +222,7 @@ func (s *Service) DeleteZone(ctx context.Context, serverID, domain string) (*db.
 		return nil, err
 	}
 	payload, _ := json.Marshal(deleteZoneRequest{ServerID: serverID, Domain: d})
-	return s.engine.Submit(serverID, "dns_delete_zone", fmt.Sprintf("Удаление DNS-зоны %s", d), string(payload))
+	return s.engine.Submit(serverID, "dns_delete_zone", i18n.Tr("dns.taskDeleteZoneTitle", i18n.Args{"domain": d}), string(payload))
 }
 
 // ParseZoneRecords extracts resource records from a BIND zone file.

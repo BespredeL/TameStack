@@ -10,6 +10,7 @@ import (
 	"tamestack/internal/config"
 	"tamestack/internal/crypto"
 	"tamestack/internal/db"
+	"tamestack/internal/i18n"
 	"tamestack/internal/module"
 	"tamestack/internal/ssh"
 	"tamestack/internal/tasks"
@@ -21,7 +22,7 @@ var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-
 func ValidateEmail(email string) error {
 	e := strings.TrimSpace(email)
 	if !emailRegex.MatchString(e) {
-		return fmt.Errorf("некорректный email-адрес: %s", email)
+		return i18n.Err("mail.invalidEmail", i18n.Args{"email": email})
 	}
 	return nil
 }
@@ -181,10 +182,10 @@ func (s *Service) InstallMailStack(ctx context.Context, serverID, hostname strin
 func (s *Service) AddMailDomain(ctx context.Context, serverID, domain string) (*db.TaskRecord, error) {
 	d := strings.TrimSpace(strings.ToLower(domain))
 	if err := ssh.ValidateHostToken(d); err != nil {
-		return nil, fmt.Errorf("недопустимый домен: %w", err)
+		return nil, i18n.Errf("mail.invalidDomain", nil, err)
 	}
 	payload, _ := json.Marshal(MailDomainRequest{ServerID: serverID, Domain: d})
-	return s.engine.Submit(serverID, "mail_add_domain", fmt.Sprintf("Добавление почтового домена %s", d), string(payload))
+	return s.engine.Submit(serverID, "mail_add_domain", i18n.Tr("mail.taskAddDomainTitle", i18n.Args{"domain": d}), string(payload))
 }
 
 // CreateMailbox submits a task to create or update a virtual mailbox.
@@ -194,10 +195,10 @@ func (s *Service) CreateMailbox(ctx context.Context, serverID, email, password s
 		return nil, err
 	}
 	if len(password) < 8 {
-		return nil, fmt.Errorf("пароль почтового ящика должен содержать минимум 8 символов")
+		return nil, i18n.Err("mail.passMinLength")
 	}
 	if strings.ContainsAny(password, "\r\n") {
-		return nil, fmt.Errorf("пароль содержит недопустимые символы")
+		return nil, i18n.Err("mail.passNewline")
 	}
 
 	encPass := password
@@ -216,7 +217,7 @@ func (s *Service) CreateMailbox(ctx context.Context, serverID, email, password s
 		Password: encPass,
 		QuotaMB:  quotaMB,
 	})
-	return s.engine.Submit(serverID, "mail_create_mailbox", fmt.Sprintf("Создание почтового ящика %s", e), string(payload))
+	return s.engine.Submit(serverID, "mail_create_mailbox", i18n.Tr("mail.taskCreateMailboxTitle", i18n.Args{"email": e}), string(payload))
 }
 
 // DeleteMailbox submits a task to delete a virtual mailbox entry.
@@ -226,7 +227,7 @@ func (s *Service) DeleteMailbox(ctx context.Context, serverID, email string) (*d
 		return nil, err
 	}
 	payload, _ := json.Marshal(DeleteMailboxRequest{ServerID: serverID, Email: e})
-	return s.engine.Submit(serverID, "mail_delete_mailbox", fmt.Sprintf("Удаление почтового ящика %s", e), string(payload))
+	return s.engine.Submit(serverID, "mail_delete_mailbox", i18n.Tr("mail.taskDeleteMailboxTitle", i18n.Args{"email": e}), string(payload))
 }
 
 // SaveMailAlias submits a task to add or update a Postfix virtual alias.
@@ -240,7 +241,7 @@ func (s *Service) SaveMailAlias(ctx context.Context, serverID, source, destinati
 		return nil, fmt.Errorf("destination: %w", err)
 	}
 	payload, _ := json.Marshal(MailAliasRequest{ServerID: serverID, Source: src, Destination: dst})
-	return s.engine.Submit(serverID, "mail_save_alias", fmt.Sprintf("Почтовый алиас %s -> %s", src, dst), string(payload))
+	return s.engine.Submit(serverID, "mail_save_alias", i18n.Tr("mail.taskSaveAliasTitle", i18n.Args{"source": src, "dest": dst}), string(payload))
 }
 
 // DeleteMailAlias submits a task to remove a Postfix virtual alias.
@@ -250,7 +251,7 @@ func (s *Service) DeleteMailAlias(ctx context.Context, serverID, source string) 
 		return nil, err
 	}
 	payload, _ := json.Marshal(MailAliasRequest{ServerID: serverID, Source: src})
-	return s.engine.Submit(serverID, "mail_delete_alias", fmt.Sprintf("Удаление алиаса %s", src), string(payload))
+	return s.engine.Submit(serverID, "mail_delete_alias", i18n.Tr("mail.taskDeleteAliasTitle", i18n.Args{"source": src}), string(payload))
 }
 
 func (s *Service) handleInstallStackTask(ctx context.Context, task *db.TaskRecord, logger tasks.TaskLogger) (string, error) {

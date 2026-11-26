@@ -11,6 +11,7 @@ import (
 	"tamestack/internal/ai/router"
 	"tamestack/internal/ai/workflows"
 	"tamestack/internal/db"
+	"tamestack/internal/i18n"
 
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -97,6 +98,7 @@ func (a *App) AISetAppLanguage(lang string) error {
 	if trimmed != "en" {
 		trimmed = "ru"
 	}
+	i18n.SetLanguage(trimmed)
 	if a.database != nil {
 		return a.database.SetAIGlobalSetting(a.ctx, "app_language", trimmed)
 	}

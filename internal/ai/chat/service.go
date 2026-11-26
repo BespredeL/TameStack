@@ -245,11 +245,23 @@ func (s *Service) StreamMessageWithContext(
 		UIContext:      uiCtx,
 	})
 
+	aliasingEnabled := true
+	providerBaseURL := ""
+	if s.database != nil {
+		if v, _ := s.database.GetAIGlobalSetting(ctx, "cloud_privacy_aliasing"); v == "false" {
+			aliasingEnabled = false
+		}
+		if pCfg, _ := s.database.GetAIProviderConfigByType(ctx, conv.SelectedProvider); pCfg != nil {
+			providerBaseURL = pCfg.BaseURL
+		}
+	}
+	masker := aiContext.NewAliasMasker(ctx, s.database, conv.SelectedProvider, providerBaseURL, aliasingEnabled)
+
 	domainMsgs := make([]domain.Message, 0, len(history)+1)
 	if sysPrompt != "" {
 		domainMsgs = append(domainMsgs, domain.Message{
 			Role:    domain.RoleSystem,
-			Content: sysPrompt,
+			Content: masker.Mask(sysPrompt),
 		})
 	}
 
@@ -258,10 +270,13 @@ func (s *Service) StreamMessageWithContext(
 		if m.ToolCallsJSON != "" {
 			_ = json.Unmarshal([]byte(m.ToolCallsJSON), &tcs)
 		}
+		for i := range tcs {
+			tcs[i].Function.Arguments = masker.Mask(tcs[i].Function.Arguments)
+		}
 		domainMsgs = append(domainMsgs, domain.Message{
 			ID:         m.ID,
 			Role:       domain.Role(m.Role),
-			Content:    m.Content,
+			Content:    masker.Mask(m.Content),
 			ToolCallID: m.ToolCallID,
 			ToolCalls:  tcs,
 		})
@@ -292,16 +307,40 @@ func (s *Service) StreamMessageWithContext(
 		return nil, fmt.Errorf("failed to start stream chat: %w", err)
 	}
 
-	res, errChunk := accumulateStream(streamChan, onChunk)
+	streamUnmask := masker.NewStreamUnmasker()
+	unmaskedOnChunk := func(chunk domain.StreamChunk) {
+		if onChunk == nil {
+			return
+		}
+		if chunk.ContentDelta != "" {
+			chunk.ContentDelta = streamUnmask.Feed(chunk.ContentDelta)
+		}
+		if chunk.FinishReason != "" {
+			if rem := streamUnmask.Flush(); rem != "" {
+				chunk.ContentDelta += rem
+			}
+		}
+		if chunk.ContentDelta != "" || chunk.ToolCallDelta != nil || chunk.FinishReason != "" || chunk.Usage != nil || chunk.Error != nil {
+			onChunk(chunk)
+		}
+	}
+
+	res, errChunk := accumulateStream(streamChan, unmaskedOnChunk)
+	if rem := streamUnmask.Flush(); rem != "" && onChunk != nil {
+		onChunk(domain.StreamChunk{ContentDelta: rem})
+	}
 	if errChunk != nil {
 		if onChunk != nil {
 			onChunk(*errChunk)
 		}
 		return nil, errChunk.Error
 	}
-	accumulatedContent := res.content
+	accumulatedContent := masker.Unmask(res.content)
 	promptTokens, completionTokens := res.promptTokens, res.completionTokens
 	detectedToolCalls := normalizeToolCalls(res.toolCalls)
+	for i := range detectedToolCalls {
+		detectedToolCalls[i].Function.Arguments = masker.Unmask(detectedToolCalls[i].Function.Arguments)
+	}
 	toolCallsJSON := marshalToolCalls(detectedToolCalls)
 
 	assistantMsg := &db.AIMessageRecord{
@@ -341,10 +380,15 @@ func (s *Service) StreamMessageWithContext(
 		// Registry.Execute enforces the security gate: tools that require human
 		// approval are refused here, proposal tools run and create their own
 		// requires-approval task in the Tasks engine.
+		maskedAssistantCalls := make([]domain.ToolCall, len(detectedToolCalls))
+		copy(maskedAssistantCalls, detectedToolCalls)
+		for i := range maskedAssistantCalls {
+			maskedAssistantCalls[i].Function.Arguments = masker.Mask(maskedAssistantCalls[i].Function.Arguments)
+		}
 		domainMsgs = append(domainMsgs, domain.Message{
 			Role:      domain.RoleAssistant,
-			Content:   accumulatedContent,
-			ToolCalls: detectedToolCalls,
+			Content:   masker.Mask(accumulatedContent),
+			ToolCalls: maskedAssistantCalls,
 		})
 
 		for _, tc := range detectedToolCalls {
@@ -390,7 +434,7 @@ func (s *Service) StreamMessageWithContext(
 
 			domainMsgs = append(domainMsgs, domain.Message{
 				Role:       domain.RoleTool,
-				Content:    outContent,
+				Content:    masker.Mask(outContent),
 				ToolCallID: tc.ID,
 			})
 		}
@@ -410,7 +454,28 @@ func (s *Service) StreamMessageWithContext(
 			break
 		}
 
-		fRes, errChunk := accumulateStream(followupChan, onChunk)
+		followUnmask := masker.NewStreamUnmasker()
+		followOnChunk := func(chunk domain.StreamChunk) {
+			if onChunk == nil {
+				return
+			}
+			if chunk.ContentDelta != "" {
+				chunk.ContentDelta = followUnmask.Feed(chunk.ContentDelta)
+			}
+			if chunk.FinishReason != "" {
+				if rem := followUnmask.Flush(); rem != "" {
+					chunk.ContentDelta += rem
+				}
+			}
+			if chunk.ContentDelta != "" || chunk.ToolCallDelta != nil || chunk.FinishReason != "" || chunk.Usage != nil || chunk.Error != nil {
+				onChunk(chunk)
+			}
+		}
+
+		fRes, errChunk := accumulateStream(followupChan, followOnChunk)
+		if rem := followUnmask.Flush(); rem != "" && onChunk != nil {
+			onChunk(domain.StreamChunk{ContentDelta: rem})
+		}
 		cancelFollowup()
 		if errChunk != nil {
 			if onChunk != nil {
@@ -419,9 +484,12 @@ func (s *Service) StreamMessageWithContext(
 			break
 		}
 
-		followupContent := fRes.content
+		followupContent := masker.Unmask(fRes.content)
 		followupPromptTokens, followupCompletionTokens := fRes.promptTokens, fRes.completionTokens
 		validNextCalls := normalizeToolCalls(fRes.toolCalls)
+		for i := range validNextCalls {
+			validNextCalls[i].Function.Arguments = masker.Unmask(validNextCalls[i].Function.Arguments)
+		}
 		nextToolCallsJSON := marshalToolCalls(validNextCalls)
 
 		stepAssistantMsg := &db.AIMessageRecord{

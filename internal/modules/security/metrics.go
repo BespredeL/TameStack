@@ -3,11 +3,12 @@ package security
 import (
 	"bufio"
 	"context"
-	"fmt"
 	"math"
 	"strconv"
 	"strings"
 	"time"
+
+	"tamestack/internal/i18n"
 )
 
 // --- Realtime System Metrics ---
@@ -25,10 +26,10 @@ func (s *Service) GetRealtimeSystemMetrics(ctx context.Context, serverID string)
 	}
 
 	// Read all key system metrics in one fast composite call with clear section separators.
-	batchCmd := "echo '===LOADAVG===' && cat /proc/loadavg 2>/dev/null && echo '===CORES===' && (nproc 2>/dev/null || grep -c ^processor /proc/cpuinfo 2>/dev/null || echo 1) && echo '===MEM===' && cat /proc/meminfo 2>/dev/null && echo '===DISK===' && (df -k -P / 2>/dev/null || df -k / 2>/dev/null) && echo '===UPTIME===' && cat /proc/uptime 2>/dev/null && echo '===END==='"
+	batchCmd := "echo '===LOADAVG===' && cat /proc/loadavg 2>/dev/null && echo '===CORES===' && (nproc 2>/dev/null || grep -c ^processor /proc/cpuinfo 2>/dev/null || echo 1) && echo '===MEM===' && cat /proc/meminfo 2>/dev/null && echo '===DISK===' && (LC_ALL=C df -k -P / 2>/dev/null || LC_ALL=C df -k / 2>/dev/null) && echo '===UPTIME===' && cat /proc/uptime 2>/dev/null && echo '===END==='"
 	out, err := s.execCmd(ctx, client, batchCmd)
 	if err != nil {
-		return nil, fmt.Errorf("ошибка сбора метрик: %w", err)
+		return nil, i18n.Errf("common.metricsCollectError", nil, err)
 	}
 
 	getSection := func(startTag, endTag string) string {
@@ -146,10 +147,18 @@ func (s *Service) parseDiskInfo(content string, metrics *RealtimeSystemMetrics) 
 	var allParts []string
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
-		if strings.HasPrefix(line, "Filesystem") || line == "" {
+		if line == "" {
 			continue
 		}
 		parts := strings.Fields(line)
+		// Skip any header line regardless of locale (e.g. "Filesystem ...", "Файл.система ..."):
+		// a valid single-line df entry has a numeric 1024-blocks column at index 1.
+		// Preserve 1-field wrapped device lines when we haven't collected fields yet.
+		if len(allParts) == 0 && len(parts) >= 2 {
+			if _, err := strconv.ParseFloat(parts[1], 64); err != nil {
+				continue
+			}
+		}
 		allParts = append(allParts, parts...)
 	}
 
@@ -162,9 +171,12 @@ func (s *Service) parseDiskInfo(content string, metrics *RealtimeSystemMetrics) 
 	// allParts[4] = usage percentage
 	// allParts[5] = mount point
 	if len(allParts) >= 4 {
-		totalKB, _ := strconv.ParseFloat(allParts[1], 64)
-		usedKB, _ := strconv.ParseFloat(allParts[2], 64)
-		freeKB, _ := strconv.ParseFloat(allParts[3], 64)
+		totalKB, errTotal := strconv.ParseFloat(allParts[1], 64)
+		usedKB, errUsed := strconv.ParseFloat(allParts[2], 64)
+		freeKB, errFree := strconv.ParseFloat(allParts[3], 64)
+		if errTotal != nil || errUsed != nil || errFree != nil {
+			return
+		}
 
 		metrics.DiskTotalGB = math.Round((totalKB/(1024*1024))*10) / 10
 		metrics.DiskUsedGB = math.Round((usedKB/(1024*1024))*10) / 10

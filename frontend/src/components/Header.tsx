@@ -92,8 +92,8 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             onClick={onOpenAICopilot}
             className="h-8 flex items-center gap-1.5 px-3 rounded-lg bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 hover:text-white hover:bg-indigo-500/25 active:scale-[0.97] transition-all duration-100 ease-out text-xs font-medium shadow-xs cursor-pointer shrink-0"
-            title={language === 'en' ? 'Open AI Copilot (Ctrl+I)' : 'Открыть AI-помощника (Ctrl+I)'}
-            aria-label={language === 'en' ? 'Open AI Copilot (Ctrl+I)' : 'Открыть AI-помощника (Ctrl+I)'}
+            title={t('header.openAICopilot')}
+            aria-label={t('header.openAICopilot')}
           >
             <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
             <span className="hidden sm:inline">AI</span>

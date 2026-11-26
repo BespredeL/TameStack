@@ -71,8 +71,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onCloseMobile,
   onOpenCommandPalette,
 }) => {
-  const { t, language } = useTranslation();
-  const isEN = language === 'en';
+  const { t } = useTranslation();
   const { selectedServerId, setSelectedServerId, selectedServer, servers } = useServer();
   const [appVersion, setAppVersion] = useState<string | null>(null);
   const [isCompact, setIsCompact] = useState<boolean>(() => {
@@ -141,7 +140,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const navGroups: NavGroup[] = [
     {
       id: 'overview',
-      label: isEN ? 'Overview' : 'Обзор',
+      label: t('nav.groups.overview'),
       items: [
         { id: 'dashboard', label: t('nav.dashboard'), icon: LayoutDashboard },
         { id: 'servers', label: t('nav.servers'), icon: Server, badge: totalCount },
@@ -151,7 +150,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     {
       id: 'web',
-      label: isEN ? 'Web & Apps' : 'Веб и приложения',
+      label: t('nav.groups.webApps'),
       items: [
         { id: 'sites', label: t('nav.sites'), icon: Globe },
         { id: 'webservers', label: t('nav.webservers'), icon: HardDrive },
@@ -162,7 +161,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     {
       id: 'data',
-      label: isEN ? 'Data & Network' : 'Данные и сеть',
+      label: t('nav.groups.dataNetwork'),
       items: [
         { id: 'databases', label: t('nav.databases'), icon: Database },
         { id: 'mail', label: t('nav.mail'), icon: Mail },
@@ -171,19 +170,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     {
       id: 'system',
-      label: isEN ? 'System & Files' : 'Система и файлы',
+      label: t('nav.groups.systemFiles'),
       items: [
         { id: 'filemanager', label: t('nav.filemanager'), icon: FolderTree },
         { id: 'cron', label: t('nav.cron'), icon: Clock },
         { id: 'backups', label: t('nav.backups'), icon: Archive },
         { id: 'services', label: t('nav.services'), icon: Cpu },
         { id: 'packages', label: t('nav.packages'), icon: Package },
-        { id: 'provisioning', label: t('nav.provisioning') || 'Server Setup', icon: Wrench },
+        { id: 'provisioning', label: t('nav.provisioning'), icon: Wrench },
       ],
     },
     {
       id: 'security',
-      label: isEN ? 'Security & Access' : 'Безопасность',
+      label: t('nav.groups.securityAccess'),
       items: [
         { id: 'security', label: t('nav.security'), icon: Lock },
         { id: 'users', label: t('nav.users'), icon: Users },
@@ -191,7 +190,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     {
       id: 'tools',
-      label: isEN ? 'Tools' : 'Инструменты',
+      label: t('nav.groups.tools'),
       items: [
         { id: 'terminal', label: t('nav.terminal'), icon: Terminal },
         { id: 'ai', label: t('nav.ai'), icon: Sparkles },
@@ -300,13 +299,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               type="button"
               onClick={onOpenCommandPalette}
-              title={isEN ? 'Quick jump (Ctrl+K)' : 'Быстрый переход (Ctrl+K)'}
-              aria-label={isEN ? 'Quick jump (Ctrl+K)' : 'Быстрый переход (Ctrl+K)'}
+              title={t('nav.quickJumpTooltip')}
+              aria-label={t('nav.quickJumpTooltip')}
               className={`w-full flex items-center ${isCompact ? 'lg:justify-center lg:px-2 justify-between px-3' : 'justify-between px-3'} py-1.5 rounded-lg bg-slate-900/90 hover:bg-slate-800 border border-slate-800 text-xs text-slate-400 hover:text-slate-200 transition`}
             >
               <span className="flex items-center gap-2">
                 <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                <span className={isCompact ? 'lg:hidden' : ''}>{isEN ? 'Quick jump...' : 'Быстрый поиск...'}</span>
+                <span className={isCompact ? 'lg:hidden' : ''}>{t('nav.quickJumpPlaceholder')}</span>
               </span>
               <kbd className={`text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-400 ${isCompact ? 'lg:hidden' : ''}`}>
                 Ctrl+K
@@ -326,7 +325,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     type="button"
                     onClick={() => toggleGroup(group.id)}
                     className="w-full flex items-center justify-between px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500 hover:text-slate-300 transition"
-                    title={isOpen ? (isEN ? 'Collapse group' : 'Свернуть группу') : (isEN ? 'Expand group' : 'Развернуть группу')}
+                    title={isOpen ? t('nav.collapseGroup') : t('nav.expandGroup')}
                   >
                     <span>{group.label}</span>
                     {isOpen ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
@@ -401,8 +400,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             type="button"
             onClick={toggleCompact}
             className="hidden lg:inline-flex p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/80 border border-slate-800/80 transition shrink-0"
-            title={isCompact ? (isEN ? 'Expand sidebar' : 'Развернуть панель') : (isEN ? 'Compact sidebar' : 'Компактный режим')}
-            aria-label={isCompact ? (isEN ? 'Expand sidebar' : 'Развернуть панель') : (isEN ? 'Compact sidebar' : 'Компактный режим')}
+            title={isCompact ? t('nav.expandSidebar') : t('nav.compactSidebar')}
+            aria-label={isCompact ? t('nav.expandSidebar') : t('nav.compactSidebar')}
           >
             {isCompact ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
           </button>

@@ -113,8 +113,11 @@ func ParseDF(output string) []MountPoint {
 		}
 		fields := strings.Fields(trimmed)
 		if len(fields) >= 6 {
-			total, _ := strconv.ParseInt(fields[1], 10, 64)
-			free, _ := strconv.ParseInt(fields[3], 10, 64)
+			total, errTotal := strconv.ParseInt(fields[1], 10, 64)
+			free, errFree := strconv.ParseInt(fields[3], 10, 64)
+			if errTotal != nil || errFree != nil || total <= 0 {
+				continue
+			}
 			mounts = append(mounts, MountPoint{
 				Filesystem: fields[0],
 				TotalBytes: total,

@@ -41,9 +41,8 @@ export const MailView: React.FC<MailViewProps> = ({
   onOpenAddServer,
 }) => {
   const { selectedServerId, setSelectedServerId } = useServer();
-  const { language } = useTranslation();
+  const { t } = useTranslation();
   const confirm = useConfirm();
-  const isEN = language === 'en';
 
   const [status, setStatus] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -96,9 +95,9 @@ export const MailView: React.FC<MailViewProps> = ({
     return (
       <EmptyState
         icon={<Mail className="w-8 h-8 text-indigo-400" />}
-        title={isEN ? 'Mail Server' : 'Почтовый сервер'}
-        description={isEN ? 'Add a server to manage Postfix, Dovecot, OpenDKIM, mailboxes, and aliases.' : 'Добавьте сервер для управления Postfix, Dovecot, OpenDKIM, почтовыми ящиками и алиасами.'}
-        action={<Button variant="primary" onClick={onOpenAddServer}>{isEN ? 'Add Server' : 'Добавить сервер'}</Button>}
+        title={t('mail.emptyTitle')}
+        description={t('mail.emptyDesc')}
+        action={<Button variant="primary" onClick={onOpenAddServer}>{t('mail.addServer')}</Button>}
       />
     );
   }
@@ -108,11 +107,7 @@ export const MailView: React.FC<MailViewProps> = ({
   const handleInstallStack = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedServerId) return;
-    const ok = await confirm(
-      isEN
-        ? 'Install and configure Postfix, Dovecot, and OpenDKIM on this server?'
-        : 'Установить и настроить Postfix, Dovecot и OpenDKIM на этом сервере?'
-    );
+    const ok = await confirm(t('mail.installConfirm'));
     if (!ok) return;
     try {
       const task = await InstallMailStack(selectedServerId, mailHostname.trim());
@@ -152,7 +147,7 @@ export const MailView: React.FC<MailViewProps> = ({
 
   const handleDeleteMailbox = async (email: string) => {
     if (!selectedServerId) return;
-    const ok = await confirm(isEN ? `Delete mailbox ${email}?` : `Удалить почтовый ящик ${email}?`, { danger: true });
+    const ok = await confirm(t('mail.deleteMailboxConfirm', { email }), { danger: true });
     if (!ok) return;
     try {
       const task = await DeleteMailbox(selectedServerId, email);
@@ -178,7 +173,7 @@ export const MailView: React.FC<MailViewProps> = ({
 
   const handleDeleteAlias = async (source: string) => {
     if (!selectedServerId) return;
-    const ok = await confirm(isEN ? `Delete alias ${source}?` : `Удалить алиас ${source}?`, { danger: true });
+    const ok = await confirm(t('mail.deleteAliasConfirm', { source }), { danger: true });
     if (!ok) return;
     try {
       const task = await DeleteMailAlias(selectedServerId, source);
@@ -201,30 +196,30 @@ export const MailView: React.FC<MailViewProps> = ({
               size="sm"
               onClick={loadStatus}
               disabled={loading}
-              title={isEN ? 'Refresh mail server status' : 'Обновить статус почтового сервера'}
-              aria-label={isEN ? 'Refresh mail server status' : 'Обновить статус почтового сервера'}
+              title={t('mail.refreshTooltip')}
+              aria-label={t('mail.refreshTooltip')}
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             </Button>
             {!stackReady && (
               <Button variant="primary" size="sm" onClick={() => setIsInstallOpen(true)}>
                 <Download className="w-3.5 h-3.5 mr-1.5" />
-                {isEN ? 'Install Mail Stack' : 'Установить почтовый стек'}
+                {t('mail.installStackBtn')}
               </Button>
             )}
             {stackReady && (
               <>
                 <Button variant="secondary" size="sm" onClick={() => setIsDomainOpen(true)}>
                   <Globe className="w-3.5 h-3.5 mr-1.5" />
-                  {isEN ? 'Add Domain' : 'Домен'}
+                  {t('mail.addDomainBtn')}
                 </Button>
                 <Button variant="primary" size="sm" onClick={() => setIsMailboxOpen(true)}>
                   <Plus className="w-3.5 h-3.5 mr-1.5" />
-                  {isEN ? 'Create Mailbox' : 'Ящик'}
+                  {t('mail.createMailboxBtn')}
                 </Button>
                 <Button variant="secondary" size="sm" onClick={() => setIsAliasOpen(true)}>
                   <Forward className="w-3.5 h-3.5 mr-1.5" />
-                  {isEN ? 'Add Alias' : 'Алиас'}
+                  {t('mail.addAliasBtn')}
                 </Button>
               </>
             )}
@@ -250,7 +245,7 @@ export const MailView: React.FC<MailViewProps> = ({
             <div>
               <div className="text-xs font-medium text-slate-200">{svc.name}</div>
               <div className="text-[11px] text-slate-500 mt-0.5">
-                {svc.installed ? (isEN ? 'Installed' : 'Установлен') : (isEN ? 'Not installed' : 'Не установлен')}
+                {svc.installed ? t('mail.installedBadge') : t('mail.notInstalledBadge')}
               </div>
             </div>
             <Badge variant={svc.active ? 'success' : svc.installed ? 'warning' : 'neutral'} size="sm">
@@ -263,10 +258,10 @@ export const MailView: React.FC<MailViewProps> = ({
       {/* Domains & DKIM/SPF/DMARC */}
       <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-5 space-y-4">
         <h3 className="text-sm font-semibold text-slate-100">
-          {isEN ? 'Mail Domains & DNS Records (DKIM / SPF / DMARC)' : 'Почтовые домены и DNS-записи (DKIM / SPF / DMARC)'}
+          {t('mail.domainsHeading')}
         </h3>
         {(!status?.domains || status.domains.length === 0) ? (
-          <p className="text-xs text-slate-500">{isEN ? 'No mail domains configured yet.' : 'Почтовые домены ещё не добавлены.'}</p>
+          <p className="text-xs text-slate-500">{t('mail.noDomains')}</p>
         ) : (
           <div className="space-y-3">
             {status.domains.map((d: any) => (
@@ -280,16 +275,16 @@ export const MailView: React.FC<MailViewProps> = ({
                 <div className="grid grid-cols-1 gap-1.5 font-mono text-[11px] text-slate-300">
                   <div className="flex items-center justify-between gap-2 bg-slate-900 px-2.5 py-1.5 rounded-lg">
                     <span className="truncate">SPF (TXT @): {d.spf_record}</span>
-                    <button type="button" onClick={() => navigator.clipboard.writeText(d.spf_record)} className="text-slate-400 hover:text-white" title={isEN ? 'Copy SPF record' : 'Скопировать SPF-запись'} aria-label={isEN ? 'Copy SPF record' : 'Скопировать SPF-запись'}><Copy className="w-3.5 h-3.5" /></button>
+                    <button type="button" onClick={() => navigator.clipboard.writeText(d.spf_record)} className="text-slate-400 hover:text-white" title={t('mail.copySpfTooltip')} aria-label={t('mail.copySpfTooltip')}><Copy className="w-3.5 h-3.5" /></button>
                   </div>
                   <div className="flex items-center justify-between gap-2 bg-slate-900 px-2.5 py-1.5 rounded-lg">
                     <span className="truncate">DMARC (TXT _dmarc): {d.dmarc_record}</span>
-                    <button type="button" onClick={() => navigator.clipboard.writeText(d.dmarc_record)} className="text-slate-400 hover:text-white" title={isEN ? 'Copy DMARC record' : 'Скопировать DMARC-запись'} aria-label={isEN ? 'Copy DMARC record' : 'Скопировать DMARC-запись'}><Copy className="w-3.5 h-3.5" /></button>
+                    <button type="button" onClick={() => navigator.clipboard.writeText(d.dmarc_record)} className="text-slate-400 hover:text-white" title={t('mail.copyDmarcTooltip')} aria-label={t('mail.copyDmarcTooltip')}><Copy className="w-3.5 h-3.5" /></button>
                   </div>
                   {d.dkim_record && (
                     <div className="flex items-start justify-between gap-2 bg-slate-900 px-2.5 py-1.5 rounded-lg">
                       <span className="break-all">DKIM (mail._domainkey): {d.dkim_record}</span>
-                      <button type="button" onClick={() => navigator.clipboard.writeText(d.dkim_record)} className="text-slate-400 hover:text-white shrink-0" title={isEN ? 'Copy DKIM record' : 'Скопировать DKIM-запись'} aria-label={isEN ? 'Copy DKIM record' : 'Скопировать DKIM-запись'}><Copy className="w-3.5 h-3.5" /></button>
+                      <button type="button" onClick={() => navigator.clipboard.writeText(d.dkim_record)} className="text-slate-400 hover:text-white shrink-0" title={t('mail.copyDkimTooltip')} aria-label={t('mail.copyDkimTooltip')}><Copy className="w-3.5 h-3.5" /></button>
                     </div>
                   )}
                 </div>
@@ -302,9 +297,9 @@ export const MailView: React.FC<MailViewProps> = ({
       {/* Mailboxes & Aliases */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-5 space-y-3">
-          <h3 className="text-sm font-semibold text-slate-100">{isEN ? 'Mailboxes' : 'Почтовые ящики'}</h3>
+          <h3 className="text-sm font-semibold text-slate-100">{t('mail.mailboxesHeading')}</h3>
           {(!status?.mailboxes || status.mailboxes.length === 0) ? (
-            <p className="text-xs text-slate-500">{isEN ? 'No mailboxes created.' : 'Почтовые ящики не созданы.'}</p>
+            <p className="text-xs text-slate-500">{t('mail.noMailboxes')}</p>
           ) : (
             <div className="divide-y divide-slate-800">
               {status.mailboxes.map((m: any) => (
@@ -317,8 +312,8 @@ export const MailView: React.FC<MailViewProps> = ({
                     variant="ghost"
                     size="sm"
                     onClick={() => handleDeleteMailbox(m.email)}
-                    title={isEN ? 'Delete mailbox' : 'Удалить почтовый ящик'}
-                    aria-label={isEN ? 'Delete mailbox' : 'Удалить почтовый ящик'}
+                    title={t('mail.deleteMailboxTooltip')}
+                    aria-label={t('mail.deleteMailboxTooltip')}
                   >
                     <Trash2 className="w-3.5 h-3.5 text-rose-400" />
                   </Button>
@@ -329,9 +324,9 @@ export const MailView: React.FC<MailViewProps> = ({
         </div>
 
         <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-5 space-y-3">
-          <h3 className="text-sm font-semibold text-slate-100">{isEN ? 'Forwarding Aliases' : 'Алиасы (переадресация)'}</h3>
+          <h3 className="text-sm font-semibold text-slate-100">{t('mail.aliasesHeading')}</h3>
           {(!status?.aliases || status.aliases.length === 0) ? (
-            <p className="text-xs text-slate-500">{isEN ? 'No aliases configured.' : 'Алиасы не настроены.'}</p>
+            <p className="text-xs text-slate-500">{t('mail.noAliases')}</p>
           ) : (
             <div className="divide-y divide-slate-800">
               {status.aliases.map((a: any) => (
@@ -343,8 +338,8 @@ export const MailView: React.FC<MailViewProps> = ({
                     variant="ghost"
                     size="sm"
                     onClick={() => handleDeleteAlias(a.source)}
-                    title={isEN ? 'Delete alias' : 'Удалить алиас'}
-                    aria-label={isEN ? 'Delete alias' : 'Удалить алиас'}
+                    title={t('mail.deleteAliasTooltip')}
+                    aria-label={t('mail.deleteAliasTooltip')}
                   >
                     <Trash2 className="w-3.5 h-3.5 text-rose-400" />
                   </Button>
@@ -356,41 +351,41 @@ export const MailView: React.FC<MailViewProps> = ({
       </div>
 
       {isInstallOpen && (
-        <ModalShell onClose={() => setIsInstallOpen(false)} title={isEN ? 'Install Mail Stack' : 'Установка почтового сервера'} icon={<Download className="w-5 h-5" />}>
+        <ModalShell onClose={() => setIsInstallOpen(false)} title={t('mail.installModalTitle')} icon={<Download className="w-5 h-5" />}>
           <form onSubmit={handleInstallStack}>
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-xs text-slate-400 mb-1.5">{isEN ? 'Mail Hostname (FQDN, optional)' : 'Hostname почтового сервера (FQDN, опционально)'}</label>
+                <label className="block text-xs text-slate-400 mb-1.5">{t('mail.hostnameLabel')}</label>
                 <Input value={mailHostname} onChange={(e) => setMailHostname(e.target.value)} placeholder="mail.example.com" />
               </div>
             </div>
             <div className="px-6 py-3.5 border-t border-slate-800 bg-slate-950/80 flex items-center justify-end gap-2">
-              <Button type="button" variant="ghost" onClick={() => setIsInstallOpen(false)}>{isEN ? 'Cancel' : 'Отмена'}</Button>
-              <Button type="submit" variant="primary">{isEN ? 'Install' : 'Установить'}</Button>
+              <Button type="button" variant="ghost" onClick={() => setIsInstallOpen(false)}>{t('mail.cancel')}</Button>
+              <Button type="submit" variant="primary">{t('mail.installBtn')}</Button>
             </div>
           </form>
         </ModalShell>
       )}
 
       {isDomainOpen && (
-        <ModalShell onClose={() => setIsDomainOpen(false)} title={isEN ? 'Add Mail Domain' : 'Добавить почтовый домен'} icon={<Globe className="w-5 h-5" />}>
+        <ModalShell onClose={() => setIsDomainOpen(false)} title={t('mail.domainModalTitle')} icon={<Globe className="w-5 h-5" />}>
           <form onSubmit={handleAddDomain}>
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-xs text-slate-400 mb-1.5">{isEN ? 'Domain' : 'Домен'}</label>
+                <label className="block text-xs text-slate-400 mb-1.5">{t('mail.domainLabel')}</label>
                 <Input value={newDomain} onChange={(e) => setNewDomain(e.target.value)} placeholder="example.com" required />
               </div>
             </div>
             <div className="px-6 py-3.5 border-t border-slate-800 bg-slate-950/80 flex items-center justify-end gap-2">
-              <Button type="button" variant="ghost" onClick={() => setIsDomainOpen(false)}>{isEN ? 'Cancel' : 'Отмена'}</Button>
-              <Button type="submit" variant="primary">{isEN ? 'Add Domain' : 'Добавить'}</Button>
+              <Button type="button" variant="ghost" onClick={() => setIsDomainOpen(false)}>{t('mail.cancel')}</Button>
+              <Button type="submit" variant="primary">{t('mail.addDomainSubmit')}</Button>
             </div>
           </form>
         </ModalShell>
       )}
 
       {isMailboxOpen && (
-        <ModalShell onClose={() => setIsMailboxOpen(false)} title={isEN ? 'Create Mailbox' : 'Создать почтовый ящик'} icon={<Mail className="w-5 h-5" />}>
+        <ModalShell onClose={() => setIsMailboxOpen(false)} title={t('mail.mailboxModalTitle')} icon={<Mail className="w-5 h-5" />}>
           <form onSubmit={handleCreateMailbox}>
             <div className="p-6 space-y-4">
               <div>
@@ -398,34 +393,34 @@ export const MailView: React.FC<MailViewProps> = ({
                 <Input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="info@example.com" required />
               </div>
               <div>
-                <label className="block text-xs text-slate-400 mb-1.5">{isEN ? 'Password (min 8 chars)' : 'Пароль (мин. 8 символов)'}</label>
+                <label className="block text-xs text-slate-400 mb-1.5">{t('mail.passwordLabel')}</label>
                 <Input type="password" value={newPass} onChange={(e) => setNewPass(e.target.value)} minLength={8} required />
               </div>
             </div>
             <div className="px-6 py-3.5 border-t border-slate-800 bg-slate-950/80 flex items-center justify-end gap-2">
-              <Button type="button" variant="ghost" onClick={() => setIsMailboxOpen(false)}>{isEN ? 'Cancel' : 'Отмена'}</Button>
-              <Button type="submit" variant="primary">{isEN ? 'Create' : 'Создать'}</Button>
+              <Button type="button" variant="ghost" onClick={() => setIsMailboxOpen(false)}>{t('mail.cancel')}</Button>
+              <Button type="submit" variant="primary">{t('mail.createBtn')}</Button>
             </div>
           </form>
         </ModalShell>
       )}
 
       {isAliasOpen && (
-        <ModalShell onClose={() => setIsAliasOpen(false)} title={isEN ? 'Add Mail Alias' : 'Добавить алиас'} icon={<Forward className="w-5 h-5" />}>
+        <ModalShell onClose={() => setIsAliasOpen(false)} title={t('mail.aliasModalTitle')} icon={<Forward className="w-5 h-5" />}>
           <form onSubmit={handleSaveAlias}>
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-xs text-slate-400 mb-1.5">{isEN ? 'Source Email' : 'Исходный адрес'}</label>
+                <label className="block text-xs text-slate-400 mb-1.5">{t('mail.sourceEmailLabel')}</label>
                 <Input type="email" value={aliasSrc} onChange={(e) => setAliasSrc(e.target.value)} placeholder="support@example.com" required />
               </div>
               <div>
-                <label className="block text-xs text-slate-400 mb-1.5">{isEN ? 'Destination Email' : 'Куда пересылать'}</label>
+                <label className="block text-xs text-slate-400 mb-1.5">{t('mail.destEmailLabel')}</label>
                 <Input type="email" value={aliasDst} onChange={(e) => setAliasDst(e.target.value)} placeholder="admin@example.com" required />
               </div>
             </div>
             <div className="px-6 py-3.5 border-t border-slate-800 bg-slate-950/80 flex items-center justify-end gap-2">
-              <Button type="button" variant="ghost" onClick={() => setIsAliasOpen(false)}>{isEN ? 'Cancel' : 'Отмена'}</Button>
-              <Button type="submit" variant="primary">{isEN ? 'Save' : 'Сохранить'}</Button>
+              <Button type="button" variant="ghost" onClick={() => setIsAliasOpen(false)}>{t('mail.cancel')}</Button>
+              <Button type="submit" variant="primary">{t('mail.saveBtn')}</Button>
             </div>
           </form>
         </ModalShell>

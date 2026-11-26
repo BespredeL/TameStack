@@ -160,8 +160,6 @@ export const SitesView: React.FC<SitesViewProps> = ({
     );
   });
 
-  const isRu = language === 'ru';
-
   if (servers.length === 0) {
     return (
       <NoServersEmptyState

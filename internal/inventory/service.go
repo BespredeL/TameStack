@@ -1,4 +1,4 @@
-﻿package inventory
+package inventory
 
 import (
 	"context"
@@ -56,7 +56,7 @@ func (s *Service) Collect(
 	usersOut := execWithTimeout("cat /etc/passwd 2>/dev/null", 3*time.Second)
 	snap.Users = ParsePasswd(usersOut)
 
-	dfOut := execWithTimeout("df -B1 -x tmpfs -x devtmpfs -x squashfs 2>/dev/null", 4*time.Second)
+	dfOut := execWithTimeout("LC_ALL=C df -B1 -x tmpfs -x devtmpfs -x squashfs 2>/dev/null", 4*time.Second)
 	snap.Mounts = ParseDF(dfOut)
 
 	// Cron: root crontab, system cron files, and per-pool-user crontabs.

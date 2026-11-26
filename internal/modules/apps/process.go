@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"tamestack/internal/db"
+	"tamestack/internal/i18n"
 	"tamestack/internal/ssh"
 )
 
@@ -60,17 +61,17 @@ func ValidateAppProcessConfig(cfg AppProcessConfig) error {
 	switch strings.ToLower(strings.TrimSpace(cfg.Runtime)) {
 	case "nodejs", "python", "go", "custom":
 	default:
-		return fmt.Errorf("недопустимый runtime: %s (допустимы: nodejs, python, go, custom)", cfg.Runtime)
+		return i18n.Err("apps.invalidRuntime", i18n.Args{"runtime": cfg.Runtime})
 	}
 	if err := ssh.ValidateRemotePath(strings.TrimSpace(cfg.WorkingDir), false); err != nil {
-		return fmt.Errorf("недопустимый рабочий каталог: %w", err)
+		return i18n.Errf("apps.invalidWorkingDir", nil, err)
 	}
 	execCmd := strings.TrimSpace(cfg.ExecStart)
 	if execCmd == "" {
-		return fmt.Errorf("команда запуска (ExecStart) не может быть пустой")
+		return i18n.Err("apps.emptyExecStart")
 	}
 	if strings.ContainsAny(execCmd, "\r\n;|&$`><") {
-		return fmt.Errorf("команда запуска содержит недопустимые символы")
+		return i18n.Err("apps.invalidExecStartChars")
 	}
 	if cfg.User != "" {
 		if err := ssh.ValidateIdent(cfg.User, "process user"); err != nil {
@@ -78,10 +79,10 @@ func ValidateAppProcessConfig(cfg AppProcessConfig) error {
 		}
 	}
 	if cfg.Port < 0 || cfg.Port > 65535 {
-		return fmt.Errorf("недопустимый порт: %d", cfg.Port)
+		return i18n.Err("apps.invalidPort", i18n.Args{"port": cfg.Port})
 	}
 	if strings.ContainsRune(cfg.EnvVars, '\x00') {
-		return fmt.Errorf("переменные окружения содержат недопустимый нулевой байт")
+		return i18n.Err("apps.envNullByte")
 	}
 	return nil
 }
@@ -220,7 +221,7 @@ func (s *Service) ConfigureAppProcess(ctx context.Context, siteID string, cfg Ap
 	envPath := appEnvFilePath(site.ID)
 
 	if err := client.EnsureDirectory(ctx, "/etc/tamestack/apps", 0700, "root:root"); err != nil {
-		return fmt.Errorf("ошибка создания /etc/tamestack/apps: %w", err)
+		return i18n.Errf("apps.createDirError", nil, err)
 	}
 
 	envBody := strings.TrimSpace(cfg.EnvVars)
@@ -234,18 +235,18 @@ func (s *Service) ConfigureAppProcess(ctx context.Context, siteID string, cfg Ap
 		envBody += "\n"
 	}
 	if err := client.WriteFile(ctx, envPath, []byte(envBody), 0600); err != nil {
-		return fmt.Errorf("ошибка записи env-файла %s: %w", envPath, err)
+		return i18n.Errf("apps.writeEnvError", i18n.Args{"path": envPath}, err)
 	}
 
 	unitBody := GenerateAppProcessUnit(site, cfg, envPath)
 	if err := client.WriteFile(ctx, unitPath, []byte(unitBody), 0644); err != nil {
-		return fmt.Errorf("ошибка записи systemd-юнита %s: %w", unitPath, err)
+		return i18n.Errf("apps.writeUnitError", i18n.Args{"path": unitPath}, err)
 	}
 
 	cmd := fmt.Sprintf("systemctl daemon-reload && systemctl enable %s && systemctl restart %s", ssh.ShellEscape(unitName), ssh.ShellEscape(unitName))
 	out, stderr, code, err := client.NewCommand(cmd).WithSudo().Exec(ctx)
 	if err != nil || code != 0 {
-		return fmt.Errorf("ошибка запуска сервиса %s: %s %s (%w)", unitName, string(out), string(stderr), err)
+		return fmt.Errorf("%s (%w)", i18n.Tr("apps.startServiceError", i18n.Args{"unit": unitName, "out": string(out), "stderr": string(stderr)}), err)
 	}
 	return nil
 }
@@ -292,7 +293,7 @@ func (s *Service) DeleteAppProcess(ctx context.Context, siteID string) error {
 		ssh.ShellEscape(unitName), ssh.ShellEscape(unitName), ssh.ShellEscape(unitPath), ssh.ShellEscape(envPath))
 	_, stderr, code, err := client.NewCommand(cmd).WithSudo().Exec(ctx)
 	if err != nil || code != 0 {
-		return fmt.Errorf("ошибка удаления сервиса %s: %s", unitName, string(stderr))
+		return i18n.Err("apps.deleteServiceError", i18n.Args{"unit": unitName, "stderr": string(stderr)})
 	}
 	return nil
 }

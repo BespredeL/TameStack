@@ -33,5 +33,8 @@ export interface Translations {
   vault?: Record<string, any>;
   commandPalette?: Record<string, any>;
   modals?: Record<string, any>;
+  users?: Record<string, any>;
+  mail?: Record<string, any>;
+  dns?: Record<string, any>;
   [key: string]: any;
 }

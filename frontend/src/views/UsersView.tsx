@@ -60,9 +60,8 @@ export const UsersView: React.FC<UsersViewProps> = ({
   onOpenAddServer,
 }) => {
   const { selectedServerId, setSelectedServerId } = useServer();
-  const { language } = useTranslation();
+  const { t } = useTranslation();
   const confirm = useConfirm();
-  const isEN = language === 'en';
 
   const [users, setUsers] = useState<SystemUserItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -125,9 +124,9 @@ export const UsersView: React.FC<UsersViewProps> = ({
     return (
       <EmptyState
         icon={<Users className="w-8 h-8 text-indigo-400" />}
-        title={isEN ? 'Users & SFTP Isolation' : 'Пользователи и SFTP-изоляция'}
-        description={isEN ? 'Add a server to manage isolated site users and SFTP chroot.' : 'Добавьте сервер для управления изолированными пользователями и SFTP chroot.'}
-        action={<Button variant="primary" onClick={onOpenAddServer}>{isEN ? 'Add Server' : 'Добавить сервер'}</Button>}
+        title={t('users.emptyTitle')}
+        description={t('users.emptyDesc')}
+        action={<Button variant="primary" onClick={onOpenAddServer}>{t('users.addServer')}</Button>}
       />
     );
   }
@@ -152,9 +151,7 @@ export const UsersView: React.FC<UsersViewProps> = ({
     e.preventDefault();
     if (!selectedServerId || !chrootUser) return;
     const ok = await confirm(
-      isEN
-        ? `Enable SFTP chroot for "${chrootUser.username}" in "${chrootDir}"? This sets directory owner to root:root (755) and disables interactive shell login.`
-        : `Включить SFTP-изоляцию (chroot) для «${chrootUser.username}» в «${chrootDir}»? Владелец каталога станет root:root (755), а интерактивный вход по SSH будет отключён.`,
+      t('users.enableChrootConfirm', { username: chrootUser.username, dir: chrootDir }),
       { danger: true }
     );
     if (!ok) return;
@@ -175,9 +172,7 @@ export const UsersView: React.FC<UsersViewProps> = ({
   const handleDisableChroot = async (username: string) => {
     if (!selectedServerId) return;
     const ok = await confirm(
-      isEN
-        ? `Disable SFTP chroot isolation for "${username}"?`
-        : `Отключить SFTP-изоляцию (chroot) для пользователя «${username}»?`,
+      t('users.disableChrootConfirm', { username }),
       { danger: true }
     );
     if (!ok) return;
@@ -193,7 +188,7 @@ export const UsersView: React.FC<UsersViewProps> = ({
     e.preventDefault();
     if (!selectedServerId || !passUser) return;
     const ok = await confirm(
-      isEN ? `Update password for user "${passUser}"?` : `Обновить пароль для пользователя «${passUser}»?`,
+      t('users.updatePassConfirm', { username: passUser }),
       { danger: true }
     );
     if (!ok) return;
@@ -236,9 +231,7 @@ export const UsersView: React.FC<UsersViewProps> = ({
     e.preventDefault();
     if (!selectedServerId || !chownUser || !chownPath.trim()) return;
     const ok = await confirm(
-      isEN
-        ? `Recursively change owner of "${chownPath.trim()}" to ${chownUser}:${chownUser}?`
-        : `Рекурсивно изменить владельца «${chownPath.trim()}» на ${chownUser}:${chownUser}?`,
+      t('users.chownConfirm', { path: chownPath.trim(), owner: chownUser, group: chownUser }),
       { danger: true }
     );
     if (!ok) return;
@@ -266,15 +259,15 @@ export const UsersView: React.FC<UsersViewProps> = ({
                 onChange={(e) => setShowSystem(e.target.checked)}
                 className="rounded border-slate-700 bg-slate-950 text-indigo-500"
               />
-              {isEN ? 'Show system' : 'Системные'}
+              {t('users.showSystem')}
             </label>
             <Button
               variant="secondary"
               size="sm"
               onClick={loadUsers}
               disabled={loading}
-              title={isEN ? 'Refresh user list' : 'Обновить список пользователей'}
-              aria-label={isEN ? 'Refresh user list' : 'Обновить список пользователей'}
+              title={t('users.refreshTooltip')}
+              aria-label={t('users.refreshTooltip')}
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             </Button>
@@ -282,10 +275,10 @@ export const UsersView: React.FC<UsersViewProps> = ({
               variant="primary"
               size="sm"
               onClick={() => setIsCreateOpen(true)}
-              title={isEN ? 'Create a new isolated site user' : 'Создать нового изолированного пользователя сайта'}
+              title={t('users.createBtnTooltip')}
             >
               <Plus className="w-3.5 h-3.5 mr-1.5" />
-              {isEN ? 'Create Site User' : 'Создать пользователя'}
+              {t('users.createBtn')}
             </Button>
           </div>
         }
@@ -303,12 +296,12 @@ export const UsersView: React.FC<UsersViewProps> = ({
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-950/60 text-slate-400 border-b border-slate-800">
               <tr>
-                <th className="px-4 py-3 font-medium">{isEN ? 'User' : 'Пользователь'}</th>
+                <th className="px-4 py-3 font-medium">{t('users.colUser')}</th>
                 <th className="px-4 py-3 font-medium">UID / GID</th>
-                <th className="px-4 py-3 font-medium">{isEN ? 'Home Directory' : 'Домашний каталог'}</th>
+                <th className="px-4 py-3 font-medium">{t('users.colHome')}</th>
                 <th className="px-4 py-3 font-medium">Shell</th>
-                <th className="px-4 py-3 font-medium">{isEN ? 'Isolation' : 'Изоляция'}</th>
-                <th className="px-4 py-3 font-medium text-right">{isEN ? 'Actions' : 'Действия'}</th>
+                <th className="px-4 py-3 font-medium">{t('users.colIsolation')}</th>
+                <th className="px-4 py-3 font-medium text-right">{t('users.colActions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/70">
@@ -326,7 +319,7 @@ export const UsersView: React.FC<UsersViewProps> = ({
                       </Badge>
                     ) : (
                       <Badge variant="neutral" size="sm">
-                        {u.is_system ? (isEN ? 'System' : 'Системный') : (isEN ? 'Standard' : 'Обычный')}
+                        {u.is_system ? t('users.typeSystem') : t('users.typeStandard')}
                       </Badge>
                     )}
                   </td>
@@ -337,7 +330,7 @@ export const UsersView: React.FC<UsersViewProps> = ({
                           <Button
                             variant="ghost"
                             size="sm"
-                            title={isEN ? 'Disable SFTP Chroot' : 'Отключить SFTP Chroot'}
+                            title={t('users.disableChrootTooltip')}
                             onClick={() => handleDisableChroot(u.username)}
                           >
                             <ShieldOff className="w-3.5 h-3.5 text-amber-400" />
@@ -346,7 +339,7 @@ export const UsersView: React.FC<UsersViewProps> = ({
                           <Button
                             variant="ghost"
                             size="sm"
-                            title={isEN ? 'Enable SFTP Chroot' : 'Включить SFTP Chroot'}
+                            title={t('users.enableChrootTooltip')}
                             onClick={() => {
                               setChrootUser(u);
                               setChrootDir(u.home_dir || `/var/www/${u.username}`);
@@ -358,7 +351,7 @@ export const UsersView: React.FC<UsersViewProps> = ({
                         <Button
                           variant="ghost"
                           size="sm"
-                          title={isEN ? 'SSH Keys' : 'SSH-ключи'}
+                          title={t('users.sshKeysTooltip')}
                           onClick={() => openKeysModal(u.username)}
                         >
                           <Key className="w-3.5 h-3.5 text-indigo-400" />
@@ -366,7 +359,7 @@ export const UsersView: React.FC<UsersViewProps> = ({
                         <Button
                           variant="ghost"
                           size="sm"
-                          title={isEN ? 'Set Password' : 'Задать пароль'}
+                          title={t('users.setPasswordTooltip')}
                           onClick={() => {
                             setPassUser(u.username);
                             setNewPassword('');
@@ -377,7 +370,7 @@ export const UsersView: React.FC<UsersViewProps> = ({
                         <Button
                           variant="ghost"
                           size="sm"
-                          title={isEN ? 'Set Folder Owner' : 'Назначить владельца каталога'}
+                          title={t('users.setOwnerTooltip')}
                           onClick={() => {
                             setChownUser(u.username);
                             setChownPath(u.home_dir || `/var/www/${u.username}`);
@@ -393,7 +386,7 @@ export const UsersView: React.FC<UsersViewProps> = ({
               {filteredUsers.length === 0 && !loading && (
                 <tr>
                   <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
-                    {isEN ? 'No users found' : 'Пользователи не найдены'}
+                    {t('users.noUsersFound')}
                   </td>
                 </tr>
               )}
@@ -405,23 +398,23 @@ export const UsersView: React.FC<UsersViewProps> = ({
       {isCreateOpen && (
         <ModalShell
           onClose={() => setIsCreateOpen(false)}
-          title={isEN ? 'Create Isolated Site User' : 'Создать пользователя сайта'}
+          title={t('users.createModalTitle')}
           icon={<Users className="w-5 h-5" />}
         >
           <form onSubmit={handleCreateUser}>
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-xs text-slate-400 mb-1.5">{isEN ? 'Username' : 'Имя пользователя'}</label>
+                <label className="block text-xs text-slate-400 mb-1.5">{t('users.usernameLabel')}</label>
                 <Input value={newUsername} onChange={(e) => setNewUsername(e.target.value)} placeholder="site_example" required />
               </div>
               <div>
-                <label className="block text-xs text-slate-400 mb-1.5">{isEN ? 'Home directory (optional)' : 'Домашний каталог (необязательно)'}</label>
+                <label className="block text-xs text-slate-400 mb-1.5">{t('users.homeDirLabel')}</label>
                 <Input value={newHomeDir} onChange={(e) => setNewHomeDir(e.target.value)} placeholder="/var/www/site_example" />
               </div>
             </div>
             <div className="px-6 py-3.5 border-t border-slate-800 bg-slate-950/80 flex items-center justify-end gap-2">
-              <Button type="button" variant="ghost" onClick={() => setIsCreateOpen(false)}>{isEN ? 'Cancel' : 'Отмена'}</Button>
-              <Button type="submit" variant="primary">{isEN ? 'Create' : 'Создать'}</Button>
+              <Button type="button" variant="ghost" onClick={() => setIsCreateOpen(false)}>{t('users.cancel')}</Button>
+              <Button type="submit" variant="primary">{t('users.create')}</Button>
             </div>
           </form>
         </ModalShell>
@@ -430,28 +423,26 @@ export const UsersView: React.FC<UsersViewProps> = ({
       {chrootUser && (
         <ModalShell
           onClose={() => setChrootUser(null)}
-          title={isEN ? `Enable SFTP Chroot: ${chrootUser.username}` : `SFTP-изоляция: ${chrootUser.username}`}
+          title={t('users.chrootModalTitle', { username: chrootUser.username })}
           icon={<Shield className="w-5 h-5 text-emerald-400" />}
         >
           <form onSubmit={handleEnableChroot}>
             <div className="p-6 space-y-4">
               <p className="text-xs text-slate-400">
-                {isEN
-                  ? 'OpenSSH requires the chroot directory to be owned by root:root (755). A writable subdirectory will be created inside for the user.'
-                  : 'OpenSSH требует, чтобы chroot-каталог принадлежал root:root (755). Внутри будет создан доступный для записи подкаталог пользователя.'}
+                {t('users.chrootNote')}
               </p>
               <div>
-                <label className="block text-xs text-slate-400 mb-1.5">{isEN ? 'Chroot directory' : 'Chroot-каталог'}</label>
+                <label className="block text-xs text-slate-400 mb-1.5">{t('users.chrootDirLabel')}</label>
                 <Input value={chrootDir} onChange={(e) => setChrootDir(e.target.value)} required />
               </div>
               <div>
-                <label className="block text-xs text-slate-400 mb-1.5">{isEN ? 'Writable subdirectory' : 'Подкаталог с правами записи'}</label>
+                <label className="block text-xs text-slate-400 mb-1.5">{t('users.writableSubdirLabel')}</label>
                 <Input value={writableSubdir} onChange={(e) => setWritableSubdir(e.target.value)} placeholder="htdocs" />
               </div>
             </div>
             <div className="px-6 py-3.5 border-t border-slate-800 bg-slate-950/80 flex items-center justify-end gap-2">
-              <Button type="button" variant="ghost" onClick={() => setChrootUser(null)}>{isEN ? 'Cancel' : 'Отмена'}</Button>
-              <Button type="submit" variant="primary">{isEN ? 'Enable Chroot' : 'Включить Chroot'}</Button>
+              <Button type="button" variant="ghost" onClick={() => setChrootUser(null)}>{t('users.cancel')}</Button>
+              <Button type="submit" variant="primary">{t('users.enableChrootBtn')}</Button>
             </div>
           </form>
         </ModalShell>
@@ -460,19 +451,19 @@ export const UsersView: React.FC<UsersViewProps> = ({
       {passUser && (
         <ModalShell
           onClose={() => setPassUser(null)}
-          title={isEN ? `Set Password: ${passUser}` : `Задать пароль: ${passUser}`}
+          title={t('users.passModalTitle', { username: passUser })}
           icon={<Lock className="w-5 h-5 text-cyan-400" />}
         >
           <form onSubmit={handleSetPassword}>
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-xs text-slate-400 mb-1.5">{isEN ? 'New Password (min 8 chars)' : 'Новый пароль (мин. 8 символов)'}</label>
+                <label className="block text-xs text-slate-400 mb-1.5">{t('users.newPassLabel')}</label>
                 <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} minLength={8} required />
               </div>
             </div>
             <div className="px-6 py-3.5 border-t border-slate-800 bg-slate-950/80 flex items-center justify-end gap-2">
-              <Button type="button" variant="ghost" onClick={() => setPassUser(null)}>{isEN ? 'Cancel' : 'Отмена'}</Button>
-              <Button type="submit" variant="primary">{isEN ? 'Save' : 'Сохранить'}</Button>
+              <Button type="button" variant="ghost" onClick={() => setPassUser(null)}>{t('users.cancel')}</Button>
+              <Button type="submit" variant="primary">{t('users.save')}</Button>
             </div>
           </form>
         </ModalShell>
@@ -481,14 +472,14 @@ export const UsersView: React.FC<UsersViewProps> = ({
       {keysUser && (
         <ModalShell
           onClose={() => setKeysUser(null)}
-          title={isEN ? `SSH Keys: ${keysUser}` : `SSH-ключи: ${keysUser}`}
+          title={t('users.keysModalTitle', { username: keysUser })}
           icon={<Key className="w-5 h-5 text-indigo-400" />}
         >
           <form onSubmit={handleAddKey}>
             <div className="p-6 space-y-4">
               <div className="max-h-48 overflow-y-auto space-y-2">
                 {userKeys.length === 0 ? (
-                  <p className="text-xs text-slate-500">{isEN ? 'No authorized keys found.' : 'Ключи не найдены.'}</p>
+                  <p className="text-xs text-slate-500">{t('users.noKeysFound')}</p>
                 ) : (
                   userKeys.map((k, idx) => (
                     <div key={idx} className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-[11px] font-mono text-slate-300 break-all">
@@ -498,13 +489,13 @@ export const UsersView: React.FC<UsersViewProps> = ({
                 )}
               </div>
               <div>
-                <label className="block text-xs text-slate-400 mb-1.5">{isEN ? 'Add Public Key' : 'Добавить публичный ключ'}</label>
+                <label className="block text-xs text-slate-400 mb-1.5">{t('users.addPublicKeyLabel')}</label>
                 <Input value={newPubKey} onChange={(e) => setNewPubKey(e.target.value)} placeholder="ssh-ed25519 AAAA..." required />
               </div>
             </div>
             <div className="px-6 py-3.5 border-t border-slate-800 bg-slate-950/80 flex items-center justify-end gap-2">
-              <Button type="button" variant="ghost" onClick={() => setKeysUser(null)}>{isEN ? 'Close' : 'Закрыть'}</Button>
-              <Button type="submit" variant="primary">{isEN ? 'Add Key' : 'Добавить ключ'}</Button>
+              <Button type="button" variant="ghost" onClick={() => setKeysUser(null)}>{t('users.close')}</Button>
+              <Button type="submit" variant="primary">{t('users.addKeyBtn')}</Button>
             </div>
           </form>
         </ModalShell>
@@ -513,19 +504,19 @@ export const UsersView: React.FC<UsersViewProps> = ({
       {chownUser && (
         <ModalShell
           onClose={() => setChownUser(null)}
-          title={isEN ? `Set Directory Owner: ${chownUser}` : `Назначить владельца: ${chownUser}`}
+          title={t('users.chownModalTitle', { username: chownUser })}
           icon={<FolderCog className="w-5 h-5" />}
         >
           <form onSubmit={handleChown}>
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-xs text-slate-400 mb-1.5">{isEN ? 'Directory path' : 'Путь к каталогу'}</label>
+                <label className="block text-xs text-slate-400 mb-1.5">{t('users.dirPathLabel')}</label>
                 <Input value={chownPath} onChange={(e) => setChownPath(e.target.value)} required />
               </div>
             </div>
             <div className="px-6 py-3.5 border-t border-slate-800 bg-slate-950/80 flex items-center justify-end gap-2">
-              <Button type="button" variant="ghost" onClick={() => setChownUser(null)}>{isEN ? 'Cancel' : 'Отмена'}</Button>
-              <Button type="submit" variant="primary">{isEN ? 'Apply' : 'Применить'}</Button>
+              <Button type="button" variant="ghost" onClick={() => setChownUser(null)}>{t('users.cancel')}</Button>
+              <Button type="submit" variant="primary">{t('users.apply')}</Button>
             </div>
           </form>
         </ModalShell>

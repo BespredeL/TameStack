@@ -25,6 +25,7 @@ import (
 	"tamestack/internal/crypto"
 	"tamestack/internal/db"
 	"tamestack/internal/dbcontainer"
+	"tamestack/internal/i18n"
 	"tamestack/internal/inventory"
 	"tamestack/internal/logger"
 	"tamestack/internal/module"
@@ -257,6 +258,11 @@ func (a *App) startup(ctx context.Context) {
 // startRuntime launches background subsystems once services are wired.
 func (a *App) startRuntime() {
 	ctx := a.ctx
+	if a.database != nil {
+		if savedLang, err := a.database.GetAIGlobalSetting(ctx, "app_language"); err == nil && savedLang != "" {
+			i18n.SetLanguage(savedLang)
+		}
+	}
 	a.engine.SetWailsContext(ctx)
 	a.engine.Start()
 	a.terminalService.SetContext(ctx)
@@ -266,7 +272,7 @@ func (a *App) startRuntime() {
 	a.vault.SetOnLockedAccess(func() {
 		if a.ctx != nil {
 			wailsRuntime.EventsEmit(a.ctx, "vault:require_unlock", map[string]string{
-				"reason": "Для доступа к секретным данным и серверам требуется разблокировка хранилища",
+				"reason": i18n.Tr("common.vaultUnlockReason"),
 			})
 		}
 	})

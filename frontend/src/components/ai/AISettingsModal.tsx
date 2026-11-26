@@ -59,8 +59,9 @@ export const AISettingsModal: React.FC<AISettingsModalProps> = ({ isOpen, onClos
   const [fetchedModels, setFetchedModels] = useState<string[]>([]);
   const [isFetchingModels, setIsFetchingModels] = useState(false);
 
-  // System prompt state
+  // System prompt & privacy state
   const [systemPrompt, setSystemPrompt] = useState('');
+  const [cloudPrivacyAliasing, setCloudPrivacyAliasing] = useState(true);
   const [promptSaveSuccess, setPromptSaveSuccess] = useState(false);
   const [isSavingPrompt, setIsSavingPrompt] = useState(false);
 
@@ -152,6 +153,7 @@ export const AISettingsModal: React.FC<AISettingsModalProps> = ({ isOpen, onClos
         setDefaultModel(globalSettings?.['default_model'] || providerDefaults[selectedType].sampleModel);
       }
       setApiKey('');
+      setCloudPrivacyAliasing(globalSettings?.['cloud_privacy_aliasing'] !== 'false');
 
       const langPromptKey = `system_prompt_${language}`;
       if (globalSettings && globalSettings[langPromptKey]) {
@@ -278,7 +280,7 @@ export const AISettingsModal: React.FC<AISettingsModalProps> = ({ isOpen, onClos
   return (
     <ModalShell
       onClose={onClose}
-      size="2xl"
+      size="4xl"
       className="max-h-[92vh]"
       icon={<Sparkles className="w-4 h-4" />}
       iconClassName="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center border border-indigo-500/30 shrink-0"
@@ -514,6 +516,7 @@ export const AISettingsModal: React.FC<AISettingsModalProps> = ({ isOpen, onClos
               <Button
                 variant="secondary"
                 size="xs"
+                className="whitespace-nowrap shrink-0"
                 onClick={handleResetPromptToDefault}
                 icon={<RotateCcw className="w-3.5 h-3.5" />}
                 title={t('ai.settings.restoreDefaultPromptTooltip')}
@@ -530,6 +533,35 @@ export const AISettingsModal: React.FC<AISettingsModalProps> = ({ isOpen, onClos
                 placeholder={t('ai.settings.systemPromptPlaceholder')}
                 className="w-full bg-transparent text-xs font-mono text-slate-200 focus:outline-none resize-y leading-relaxed"
               />
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <div className="text-xs font-semibold text-white flex items-center gap-2">
+                  <Shield className="w-3.5 h-3.5 text-emerald-400" />
+                  {t('ai.settings.cloudMaskTitle')}
+                </div>
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  {t('ai.settings.cloudMaskDesc')}
+                </p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-0.5">
+                <input
+                  type="checkbox"
+                  checked={cloudPrivacyAliasing}
+                  onChange={async (e) => {
+                    const next = e.target.checked;
+                    setCloudPrivacyAliasing(next);
+                    try {
+                      await AISaveGlobalSettings({ cloud_privacy_aliasing: next ? 'true' : 'false' });
+                    } catch (err: unknown) {
+                      alert(getErrorMessage(err));
+                    }
+                  }}
+                  className="sr-only peer"
+                />
+                <div className="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600 border border-slate-700" />
+              </label>
             </div>
 
             <div className="p-3 rounded-lg bg-slate-950/50 border border-slate-800/80 text-[11px] text-slate-400 space-y-1">

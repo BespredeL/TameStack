@@ -1,4 +1,4 @@
-﻿package security
+package security
 
 import (
 	"context"
@@ -214,6 +214,19 @@ func TestSecurity_ParseDiskInfo(t *testing.T) {
 	}
 	if metrics.DiskUsedPercent != 36.9 {
 		t.Errorf("expected DiskUsedPercent=36.9, got %f", metrics.DiskUsedPercent)
+	}
+
+	// Localized (Russian) df output sample must still parse disk metrics accurately.
+	ruDiskSample := `Файл.система   1024-блоков  Использовано  Доступно Использовано% Cмонтировано на
+/dev/sda1         41208984      15204352  24004632           39% /
+`
+	ruMetrics := &RealtimeSystemMetrics{}
+	svc.parseDiskInfo(ruDiskSample, ruMetrics)
+	if ruMetrics.DiskTotalGB != 39.3 {
+		t.Errorf("expected localized DiskTotalGB=39.3, got %f", ruMetrics.DiskTotalGB)
+	}
+	if ruMetrics.DiskUsedGB != 14.5 {
+		t.Errorf("expected localized DiskUsedGB=14.5, got %f", ruMetrics.DiskUsedGB)
 	}
 }
 

@@ -14,6 +14,7 @@ import (
 	"tamestack/internal/config"
 	"tamestack/internal/crypto"
 	"tamestack/internal/db"
+	"tamestack/internal/i18n"
 	"tamestack/internal/module"
 	"tamestack/internal/ssh"
 	"tamestack/internal/tasks"
@@ -61,10 +62,10 @@ func (s *Service) execCmd(ctx context.Context, client *ssh.SSHClient, cmd string
 func ValidateUsername(username string) error {
 	u := strings.TrimSpace(username)
 	if u == "" {
-		return fmt.Errorf("имя пользователя не может быть пустым")
+		return i18n.Err("users.emptyUsername")
 	}
 	if !usernameRegex.MatchString(u) {
-		return fmt.Errorf("недопустимое имя пользователя '%s': должно начинаться с буквы и содержать только строчные буквы, цифры, дефис или подчеркивание (до 32 символов)", u)
+		return i18n.Err("users.invalidUsername", i18n.Args{"username": u})
 	}
 
 	reserved := map[string]bool{
@@ -75,7 +76,7 @@ func ValidateUsername(username string) error {
 		"systemd": true, "syslog": true, "sshd": true, "sudo": true,
 	}
 	if reserved[u] {
-		return fmt.Errorf("имя '%s' является зарезервированным системным именем пользователя", u)
+		return i18n.Err("users.reservedUsername", i18n.Args{"username": u})
 	}
 	return nil
 }
@@ -84,14 +85,14 @@ func ValidateUsername(username string) error {
 func ValidateSSHKey(key string) error {
 	k := strings.TrimSpace(key)
 	if k == "" {
-		return fmt.Errorf("SSH-ключ не может быть пустым")
+		return i18n.Err("users.emptySSHKey")
 	}
 	for _, p := range sshKeyPrefixes {
 		if strings.HasPrefix(k, p) {
 			return nil
 		}
 	}
-	return fmt.Errorf("недопустимый формат открытого ключа SSH: поддерживаются ssh-rsa, ssh-ed25519, ecdsa-sha2-*")
+	return i18n.Err("users.invalidSSHKey")
 }
 
 // ListUsers returns users from /etc/passwd on the remote server.
@@ -179,7 +180,7 @@ func (s *Service) CreateSiteUser(ctx context.Context, serverID string, username 
 		HomeDir:  path.Clean(h),
 	})
 
-	taskName := fmt.Sprintf("Создание изолированного пользователя сайта: %s", username)
+	taskName := i18n.Tr("users.taskCreateTitle", i18n.Args{"username": username})
 	return s.engine.Submit(serverID, "user_create_site", taskName, string(payload))
 }
 
@@ -196,7 +197,7 @@ func (s *Service) SetDirectoryOwner(ctx context.Context, serverID string, dirPat
 
 	// Guard against root or system directories.
 	if cleanPath == "/" || cleanPath == "/etc" || cleanPath == "/bin" || cleanPath == "/usr" || cleanPath == "/var" {
-		return nil, fmt.Errorf("изменение владельца системного каталога %s запрещено", cleanPath)
+		return nil, fmt.Errorf("changing owner of system directory %s is forbidden", cleanPath)
 	}
 
 	grp := strings.TrimSpace(group)
@@ -214,7 +215,7 @@ func (s *Service) SetDirectoryOwner(ctx context.Context, serverID string, dirPat
 		Group:    grp,
 	})
 
-	taskName := fmt.Sprintf("Установка владельца %s:%s для %s", username, grp, cleanPath)
+	taskName := i18n.Tr("users.taskChownTitle", i18n.Args{"path": cleanPath})
 	return s.engine.Submit(serverID, "user_chown_site", taskName, string(payload))
 }
 
@@ -233,7 +234,7 @@ func (s *Service) GetAuthorizedKeys(ctx context.Context, serverID string, userna
 	homeOut, err := s.execCmd(ctx, client, cmd, false)
 	homeDir := strings.TrimSpace(homeOut)
 	if homeDir == "" {
-		return nil, fmt.Errorf("пользователь %s не найден", username)
+		return nil, i18n.Err("users.userNotFound", i18n.Args{"username": username})
 	}
 
 	keyPath := path.Join(homeDir, ".ssh", "authorized_keys")
@@ -288,7 +289,7 @@ func (s *Service) AddAuthorizedKey(ctx context.Context, serverID string, usernam
 		Key:      strings.TrimSpace(pubKey),
 	})
 
-	taskName := fmt.Sprintf("Добавление SSH-ключа для пользователя %s", username)
+	taskName := i18n.Tr("users.taskAddKeyTitle", i18n.Args{"username": username})
 	return s.engine.Submit(serverID, "user_add_ssh_key", taskName, string(payload))
 }
 
@@ -419,7 +420,7 @@ func (s *Service) EnableSFTPChroot(ctx context.Context, serverID, username, chro
 		return nil, err
 	}
 	if username == "root" {
-		return nil, fmt.Errorf("нельзя изолировать пользователя root в SFTP chroot")
+		return nil, i18n.Err("users.rootChrootForbidden")
 	}
 	dir := strings.TrimSpace(chrootDir)
 	if dir == "" {
@@ -441,7 +442,7 @@ func (s *Service) EnableSFTPChroot(ctx context.Context, serverID, username, chro
 		ChrootDir:      path.Clean(dir),
 		WritableSubdir: sub,
 	})
-	return s.engine.Submit(serverID, "user_enable_sftp_chroot", fmt.Sprintf("SFTP-изоляция (chroot) для %s", username), string(payload))
+	return s.engine.Submit(serverID, "user_enable_sftp_chroot", i18n.Tr("users.taskEnableChrootTitle", i18n.Args{"username": username}), string(payload))
 }
 
 // DisableSFTPChroot submits a task to remove SFTP chroot isolation for a user.
@@ -453,7 +454,7 @@ func (s *Service) DisableSFTPChroot(ctx context.Context, serverID, username stri
 		ServerID: serverID,
 		Username: username,
 	})
-	return s.engine.Submit(serverID, "user_disable_sftp_chroot", fmt.Sprintf("Отключение SFTP-изоляции для %s", username), string(payload))
+	return s.engine.Submit(serverID, "user_disable_sftp_chroot", i18n.Tr("users.taskDisableChrootTitle", i18n.Args{"username": username}), string(payload))
 }
 
 // SetUserPassword submits a task to update a system/SFTP user's password via chpasswd stdin.
@@ -462,13 +463,13 @@ func (s *Service) SetUserPassword(ctx context.Context, serverID, username, passw
 		return nil, err
 	}
 	if username == "root" {
-		return nil, fmt.Errorf("изменение пароля root через модуль пользователей сайтов запрещено")
+		return nil, i18n.Err("users.rootPassForbidden")
 	}
 	if len(password) < 8 {
-		return nil, fmt.Errorf("пароль должен содержать минимум 8 символов")
+		return nil, i18n.Err("users.passMinLength")
 	}
 	if strings.ContainsAny(password, "\r\n") {
-		return nil, fmt.Errorf("пароль содержит недопустимые символы перевода строки")
+		return nil, i18n.Err("users.passNewline")
 	}
 
 	encPass := password
@@ -476,7 +477,7 @@ func (s *Service) SetUserPassword(ctx context.Context, serverID, username, passw
 		var err error
 		encPass, err = s.Vault.Encrypt(password)
 		if err != nil {
-			return nil, fmt.Errorf("ошибка шифрования пароля: %w", err)
+			return nil, i18n.Errf("users.passEncryptError", nil, err)
 		}
 		encPass = "vault:" + encPass
 	}
@@ -486,7 +487,7 @@ func (s *Service) SetUserPassword(ctx context.Context, serverID, username, passw
 		Username: username,
 		Password: encPass,
 	})
-	return s.engine.Submit(serverID, "user_set_password", fmt.Sprintf("Установка пароля для %s", username), string(payload))
+	return s.engine.Submit(serverID, "user_set_password", i18n.Tr("users.taskSetPassTitle", i18n.Args{"username": username}), string(payload))
 }
 
 func (s *Service) handleEnableSFTPChrootTask(ctx context.Context, task *db.TaskRecord, logger tasks.TaskLogger) (string, error) {

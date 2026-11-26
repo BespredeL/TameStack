@@ -20,9 +20,8 @@ export const AppProcessManagerCard: React.FC<AppProcessManagerCardProps> = ({
   siteId,
   documentRoot,
 }) => {
-  const { language } = useTranslation();
+  const { t } = useTranslation();
   const confirm = useConfirm();
-  const isEN = language === 'en';
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -63,11 +62,7 @@ export const AppProcessManagerCard: React.FC<AppProcessManagerCardProps> = ({
 
   const handleSaveAndStart = async (e: React.FormEvent) => {
     e.preventDefault();
-    const ok = await confirm(
-      isEN
-        ? 'Deploy systemd unit and restart this application process?'
-        : 'Обновить systemd-юнит и перезапустить процесс приложения?'
-    );
+    const ok = await confirm(t('siteApp.processManager.deployConfirm'));
     if (!ok) return;
     setSaving(true);
     setError(null);
@@ -93,8 +88,8 @@ export const AppProcessManagerCard: React.FC<AppProcessManagerCardProps> = ({
     if (action === 'stop' || action === 'restart') {
       const ok = await confirm(
         action === 'stop'
-          ? (isEN ? 'Stop this application process?' : 'Остановить процесс приложения?')
-          : (isEN ? 'Restart this application process?' : 'Перезапустить процесс приложения?'),
+          ? t('siteApp.processManager.stopConfirm')
+          : t('siteApp.processManager.restartConfirm'),
         { danger: action === 'stop' }
       );
       if (!ok) return;
@@ -113,9 +108,7 @@ export const AppProcessManagerCard: React.FC<AppProcessManagerCardProps> = ({
 
   const handleDelete = async () => {
     const ok = await confirm(
-      isEN
-        ? 'Stop and remove the systemd service for this app?'
-        : 'Остановить и удалить systemd-сервис этого приложения?',
+      t('siteApp.processManager.deleteConfirm'),
       { danger: true }
     );
     if (!ok) return;
@@ -140,7 +133,7 @@ export const AppProcessManagerCard: React.FC<AppProcessManagerCardProps> = ({
           <Cpu className="w-5 h-5 text-cyan-400" />
           <div>
             <h4 className="text-sm font-semibold text-slate-100">
-              {isEN ? 'App Process Manager (Node.js / Python / Go)' : 'Менеджер процесса (Node.js / Python / Go)'}
+              {t('siteApp.processManager.title')}
             </h4>
             <p className="text-[11px] text-slate-400 font-mono">
               {status?.unit_name || 'tamestack-app.service'}
@@ -155,21 +148,21 @@ export const AppProcessManagerCard: React.FC<AppProcessManagerCardProps> = ({
           </Badge>
           {status?.configured && (
             <>
-              <Button variant="ghost" size="sm" onClick={() => handleControl('start')} disabled={saving} title={isEN ? 'Start service' : 'Запустить сервис'} aria-label={isEN ? 'Start service' : 'Запустить сервис'}>
+              <Button variant="ghost" size="sm" onClick={() => handleControl('start')} disabled={saving} title={t('siteApp.processManager.startTooltip')} aria-label={t('siteApp.processManager.startTooltip')}>
                 <Play className="w-3.5 h-3.5 text-emerald-400" />
               </Button>
-              <Button variant="ghost" size="sm" onClick={() => handleControl('restart')} disabled={saving} title={isEN ? 'Restart service' : 'Перезапустить сервис'} aria-label={isEN ? 'Restart service' : 'Перезапустить сервис'}>
+              <Button variant="ghost" size="sm" onClick={() => handleControl('restart')} disabled={saving} title={t('siteApp.processManager.restartTooltip')} aria-label={t('siteApp.processManager.restartTooltip')}>
                 <RotateCw className="w-3.5 h-3.5 text-indigo-400" />
               </Button>
-              <Button variant="ghost" size="sm" onClick={() => handleControl('stop')} disabled={saving} title={isEN ? 'Stop service' : 'Остановить сервис'} aria-label={isEN ? 'Stop service' : 'Остановить сервис'}>
+              <Button variant="ghost" size="sm" onClick={() => handleControl('stop')} disabled={saving} title={t('siteApp.processManager.stopTooltip')} aria-label={t('siteApp.processManager.stopTooltip')}>
                 <Square className="w-3.5 h-3.5 text-amber-400" />
               </Button>
-              <Button variant="ghost" size="sm" onClick={handleDelete} disabled={saving} title={isEN ? 'Delete systemd service' : 'Удалить systemd-сервис'} aria-label={isEN ? 'Delete systemd service' : 'Удалить systemd-сервис'}>
+              <Button variant="ghost" size="sm" onClick={handleDelete} disabled={saving} title={t('siteApp.processManager.deleteTooltip')} aria-label={t('siteApp.processManager.deleteTooltip')}>
                 <Trash2 className="w-3.5 h-3.5 text-rose-400" />
               </Button>
             </>
           )}
-          <Button variant="ghost" size="sm" onClick={loadStatus} disabled={loading} title={isEN ? 'Refresh service status' : 'Обновить статус сервиса'} aria-label={isEN ? 'Refresh service status' : 'Обновить статус сервиса'}>
+          <Button variant="ghost" size="sm" onClick={loadStatus} disabled={loading} title={t('siteApp.processManager.refreshTooltip')} aria-label={t('siteApp.processManager.refreshTooltip')}>
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           </Button>
         </div>
@@ -192,11 +185,11 @@ export const AppProcessManagerCard: React.FC<AppProcessManagerCardProps> = ({
           </Select>
         </div>
         <div>
-          <label className="block text-slate-400 mb-1">{isEN ? 'Port (PORT env)' : 'Порт (PORT env)'}</label>
+          <label className="block text-slate-400 mb-1">{t('siteApp.processManager.portLabel')}</label>
           <Input type="number" value={port} onChange={(e) => setPort(Number(e.target.value))} className="font-mono" />
         </div>
         <div className="md:col-span-2">
-          <label className="block text-slate-400 mb-1">{isEN ? 'Start Command (ExecStart)' : 'Команда запуска (ExecStart)'}</label>
+          <label className="block text-slate-400 mb-1">{t('siteApp.processManager.execStartLabel')}</label>
           <Input
             value={execStart}
             onChange={(e) => setExecStart(e.target.value)}
@@ -206,15 +199,15 @@ export const AppProcessManagerCard: React.FC<AppProcessManagerCardProps> = ({
           />
         </div>
         <div>
-          <label className="block text-slate-400 mb-1">{isEN ? 'Working Directory' : 'Рабочий каталог'}</label>
+          <label className="block text-slate-400 mb-1">{t('siteApp.processManager.workingDirLabel')}</label>
           <Input value={workingDir} onChange={(e) => setWorkingDir(e.target.value)} className="font-mono" required />
         </div>
         <div>
-          <label className="block text-slate-400 mb-1">{isEN ? 'System User' : 'Пользователь'}</label>
+          <label className="block text-slate-400 mb-1">{t('siteApp.processManager.systemUserLabel')}</label>
           <Input value={user} onChange={(e) => setUser(e.target.value)} className="font-mono" />
         </div>
         <div className="md:col-span-2">
-          <label className="block text-slate-400 mb-1">{isEN ? 'Environment Variables (.env)' : 'Переменные окружения (.env)'}</label>
+          <label className="block text-slate-400 mb-1">{t('siteApp.processManager.envVarsLabel')}</label>
           <textarea
             value={envVars}
             onChange={(e) => setEnvVars(e.target.value)}
@@ -225,7 +218,7 @@ export const AppProcessManagerCard: React.FC<AppProcessManagerCardProps> = ({
         <div className="md:col-span-2 flex justify-end">
           <Button type="submit" variant="primary" size="sm" loading={saving} disabled={saving}>
             <Save className="w-3.5 h-3.5 mr-1.5" />
-            {isEN ? 'Deploy & Restart Service' : 'Применить и перезапустить'}
+            {t('siteApp.processManager.deployBtn')}
           </Button>
         </div>
       </form>

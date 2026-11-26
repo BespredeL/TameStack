@@ -10,6 +10,8 @@ import {
   Server,
   Layers,
   Loader2,
+  ShieldAlert,
+  Settings,
 } from 'lucide-react';
 import { Badge, Button } from '../ui';
 import { MarkdownRenderer } from './MarkdownRenderer';
@@ -19,6 +21,7 @@ import { getErrorMessage } from '../../utils/errors';
 import {
   AICreateConversation,
   AIListMessages,
+  AIListProviderConfigs,
   AIStreamMessageWithContext,
 } from '../../../wailsjs/go/main/App';
 import { EventsOn } from '../../../wailsjs/runtime/runtime';
@@ -37,41 +40,14 @@ interface GlobalAICopilotProps {
   onOpenFullAI: () => void;
 }
 
-const getTabSuggestions = (tab: NavigationTab, isEN: boolean): string[] => {
-  switch (tab) {
-    case 'sites':
-      return isEN
-        ? ['How to set up Node.js/Python with Reverse Proxy?', 'Check why a site returns 502/500']
-        : ['Как поднять Node.js/Python за Reverse Proxy?', 'Проверь причины ошибки 502/500'];
-    case 'mail':
-      return isEN
-        ? ['Which DNS records are needed for mail?', 'How to verify DKIM, SPF and DMARC?']
-        : ['Какие DNS-записи нужны для почты?', 'Как проверить DKIM, SPF и DMARC?'];
-    case 'dns':
-      return isEN
-        ? ['How to configure A, MX and TXT records?', 'Check domain DNS resolution on the server']
-        : ['Как настроить A, MX и TXT записи?', 'Проверь резолвинг домена на сервере'];
-    case 'users':
-      return isEN
-        ? ['How does SFTP chroot isolation work?', 'How to grant a user access to a site folder?']
-        : ['Как работает SFTP chroot-изоляция?', 'Как выдать пользователю права на папку сайта?'];
-    case 'security':
-      return isEN
-        ? ['Audit open ports and Fail2ban jails', 'What hardening steps should I enable?']
-        : ['Проверь открытые порты и Fail2ban', 'Что стоит включить для усиления защиты?'];
-    case 'databases':
-      return isEN
-        ? ['Check MySQL/PostgreSQL service status', 'How to safely back up and restore a DB?']
-        : ['Проверь статус MySQL/PostgreSQL', 'Как безопасно сделать бэкап и восстановление БД?'];
-    case 'docker':
-      return isEN
-        ? ['Inspect running containers and logs', 'How to free disk space from unused images?']
-        : ['Проверь запущенные контейнеры и логи', 'Как очистить место от неиспользуемых образов?'];
-    default:
-      return isEN
-        ? ['What can I do in this section?', 'Inspect current server health & logs']
-        : ['Что можно сделать в этом разделе?', 'Проверь общее состояние сервера и логи'];
-  }
+const getTabSuggestions = (tab: NavigationTab, t: (key: string) => string): string[] => {
+  const key = ['sites', 'mail', 'dns', 'users', 'security', 'databases', 'docker'].includes(tab)
+    ? tab
+    : 'default';
+  return [
+    t(`ai.copilot.suggestions.${key}.q1`),
+    t(`ai.copilot.suggestions.${key}.q2`),
+  ];
 };
 
 export const GlobalAICopilot: React.FC<GlobalAICopilotProps> = ({
@@ -81,7 +57,6 @@ export const GlobalAICopilot: React.FC<GlobalAICopilotProps> = ({
   onOpenFullAI,
 }) => {
   const { t, language } = useTranslation();
-  const isEN = language === 'en';
   const { selectedServer, selectedServerId } = useServer();
 
   const [convId, setConvId] = useState<string | null>(null);
@@ -91,9 +66,98 @@ export const GlobalAICopilot: React.FC<GlobalAICopilotProps> = ({
   const [streamingContent, setStreamingContent] = useState('');
   const [includeContext, setIncludeContext] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [providersChecked, setProvidersChecked] = useState(false);
+  const [isAIConfigured, setIsAIConfigured] = useState(true);
+  const [isCloudActive, setIsCloudActive] = useState(false);
+  const [panelWidth, setPanelWidth] = useState<number>(() => {
+    try {
+      const saved = parseInt(localStorage.getItem('tamestack_ai_copilot_width') || '460', 10);
+      return Number.isFinite(saved) && saved >= 360 ? saved : 460;
+    } catch {
+      return 460;
+    }
+  });
+  const [isResizing, setIsResizing] = useState(false);
 
   const streamConvRef = useRef<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+    const isLocalProvider = (p: any): boolean => {
+      if (!p) return false;
+      if (p.provider_type === 'ollama' || p.provider_type === 'llamacpp') return true;
+      const url = String(p.base_url || '').trim().toLowerCase();
+      if (!url) return false;
+      try {
+        const host = new URL(url).hostname;
+        if (
+          host === 'localhost' ||
+          host.endsWith('.localhost') ||
+          host.endsWith('.local') ||
+          host === '0.0.0.0' ||
+          host.startsWith('127.') ||
+          host === '::1' ||
+          host === '[::1]' ||
+          host.startsWith('10.') ||
+          host.startsWith('192.168.') ||
+          /^172\.(1[6-9]|2\d|3[01])\./.test(host)
+        ) {
+          return true;
+        }
+      } catch {
+        // ignore invalid URL
+      }
+      return false;
+    };
+
+    AIListProviderConfigs()
+      .then((list: any) => {
+        if (cancelled) return;
+        const providers = Array.isArray(list) ? list : [];
+        const active = providers.filter(
+          (p: any) =>
+            p.is_enabled &&
+            (isLocalProvider(p) || p.has_api_key)
+        );
+        setIsAIConfigured(active.length > 0);
+        const def = active.find((p: any) => p.is_default) || active[0];
+        setIsCloudActive(!!def && !isLocalProvider(def));
+        setProvidersChecked(true);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setProvidersChecked(true);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isResizing) return;
+    const onMouseMove = (e: MouseEvent) => {
+      const maxW = Math.min(960, window.innerWidth - 60);
+      const next = Math.max(360, Math.min(maxW, window.innerWidth - e.clientX));
+      setPanelWidth(next);
+    };
+    const onMouseUp = () => {
+      setIsResizing(false);
+      try {
+        localStorage.setItem('tamestack_ai_copilot_width', String(panelWidth));
+      } catch {
+        // ignore
+      }
+    };
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+  }, [isResizing, panelWidth]);
 
   useEffect(() => {
     streamConvRef.current = convId;
@@ -140,7 +204,7 @@ export const GlobalAICopilot: React.FC<GlobalAICopilotProps> = ({
 
   const tabTitle = t(`titles.${currentTab}.title`);
   const tabSubtitle = t(`titles.${currentTab}.subtitle`);
-  const suggestions = getTabSuggestions(currentTab, isEN);
+  const suggestions = getTabSuggestions(currentTab, t);
 
   const startNewChat = async () => {
     setConvId(null);
@@ -256,7 +320,19 @@ export const GlobalAICopilot: React.FC<GlobalAICopilotProps> = ({
   };
 
   return (
-    <div className="fixed inset-y-0 right-0 z-40 w-full sm:w-[440px] bg-surface-950 border-l border-slate-800 shadow-2xl shadow-black/80 flex flex-col">
+    <div
+      style={{ width: `min(100vw, ${panelWidth}px)` }}
+      className={`fixed inset-y-0 right-0 z-40 bg-surface-950 border-l border-slate-800 shadow-2xl shadow-black/80 flex flex-col ${isResizing ? 'select-none' : ''}`}
+    >
+      {/* Left Resize Handle */}
+      <div
+        onMouseDown={(e) => {
+          e.preventDefault();
+          setIsResizing(true);
+        }}
+        title={t('ai.copilot.dragToResize')}
+        className="hidden sm:block absolute inset-y-0 left-0 w-1.5 cursor-col-resize hover:bg-indigo-500/60 active:bg-indigo-500 transition-colors z-50"
+      />
       {/* Header */}
       <div className="h-14 px-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/80 shrink-0">
         <div className="flex items-center gap-2.5 min-w-0">
@@ -266,7 +342,7 @@ export const GlobalAICopilot: React.FC<GlobalAICopilotProps> = ({
           <div className="min-w-0">
             <div className="text-sm font-semibold text-white truncate">TameStack AI Copilot</div>
             <div className="text-[11px] text-slate-400 truncate">
-              {isEN ? 'Context-aware assistant' : 'Контекстный помощник'}
+              {t('ai.copilot.subtitle')}
             </div>
           </div>
         </div>
@@ -275,8 +351,8 @@ export const GlobalAICopilot: React.FC<GlobalAICopilotProps> = ({
             variant="ghost"
             size="sm"
             onClick={startNewChat}
-            title={isEN ? 'New conversation' : 'Новый диалог'}
-            aria-label={isEN ? 'New conversation' : 'Новый диалог'}
+            title={t('ai.copilot.newConversation')}
+            aria-label={t('ai.copilot.newConversation')}
           >
             <Plus className="w-4 h-4" />
           </Button>
@@ -287,8 +363,8 @@ export const GlobalAICopilot: React.FC<GlobalAICopilotProps> = ({
               onClose();
               onOpenFullAI();
             }}
-            title={isEN ? 'Open full AI view' : 'Открыть полный AI-чат'}
-            aria-label={isEN ? 'Open full AI view' : 'Открыть полный AI-чат'}
+            title={t('ai.copilot.openFullView')}
+            aria-label={t('ai.copilot.openFullView')}
           >
             <Maximize2 className="w-4 h-4" />
           </Button>
@@ -296,8 +372,8 @@ export const GlobalAICopilot: React.FC<GlobalAICopilotProps> = ({
             variant="ghost"
             size="sm"
             onClick={onClose}
-            title={isEN ? 'Close Copilot (Ctrl+I)' : 'Закрыть (Ctrl+I)'}
-            aria-label={isEN ? 'Close Copilot' : 'Закрыть'}
+            title={t('ai.copilot.closeTooltip')}
+            aria-label={t('ai.copilot.closeAria')}
           >
             <X className="w-4 h-4" />
           </Button>
@@ -325,20 +401,69 @@ export const GlobalAICopilot: React.FC<GlobalAICopilotProps> = ({
             onChange={(e) => setIncludeContext(e.target.checked)}
             className="rounded border-slate-700 bg-slate-950 text-indigo-500"
           />
-          <span>{isEN ? 'Screen context' : 'Контекст экрана'}</span>
+          <span>{t('ai.copilot.screenContext')}</span>
         </label>
       </div>
 
+      {/* Cloud AI Privacy Notice */}
+      {providersChecked && isAIConfigured && isCloudActive && (
+        <div className="px-4 py-2 border-b border-amber-500/20 bg-amber-500/10 text-amber-200 text-[11px] flex items-start gap-2 shrink-0">
+          <ShieldAlert className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
+          <span>
+            {t('ai.copilot.cloudWarning')}
+          </span>
+        </div>
+      )}
+
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {messages.length === 0 && !streamingContent && (
+        {providersChecked && !isAIConfigured ? (
+          <div className="py-6 space-y-4">
+            <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
+                  <Settings className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="text-xs font-semibold text-white">
+                    {t('ai.copilot.notConfiguredTitle')}
+                  </div>
+                  <div className="text-[11px] text-slate-400">
+                    {t('ai.copilot.notConfiguredDesc')}
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-200 text-[11px] leading-relaxed flex items-start gap-2">
+                <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-semibold text-amber-300 mb-0.5">
+                    {t('ai.copilot.securityRecTitle')}
+                  </div>
+                  {t('ai.copilot.securityRecDesc')}
+                </div>
+              </div>
+
+              <Button
+                variant="primary"
+                size="sm"
+                className="w-full"
+                onClick={() => {
+                  onClose();
+                  onOpenFullAI();
+                }}
+              >
+                <Settings className="w-3.5 h-3.5 mr-1.5" />
+                {t('ai.copilot.openSettingsBtn')}
+              </Button>
+            </div>
+          </div>
+        ) : messages.length === 0 && !streamingContent && (
           <div className="py-6 space-y-4">
             <div className="text-center space-y-1.5">
               <Bot className="w-8 h-8 text-indigo-400 mx-auto" />
               <p className="text-xs font-medium text-slate-200">
-                {isEN
-                  ? 'Ask about TameStack features, current screen, or server diagnostics'
-                  : 'Спросите о возможностях TameStack, текущем разделе или диагностике сервера'}
+                {t('ai.copilot.emptyPrompt')}
               </p>
             </div>
             <div className="space-y-2">
@@ -424,18 +549,23 @@ export const GlobalAICopilot: React.FC<GlobalAICopilotProps> = ({
             }
           }}
           rows={2}
-          placeholder={isEN ? 'Ask AI anything... (Enter to send)' : 'Спросите AI... (Enter — отправить)'}
-          className="flex-1 resize-none rounded-xl bg-slate-900 border border-slate-800 px-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-indigo-500"
+          disabled={!isAIConfigured}
+          placeholder={
+            !isAIConfigured
+              ? t('ai.copilot.placeholderDisabled')
+              : t('ai.copilot.placeholderActive')
+          }
+          className="flex-1 resize-none rounded-xl bg-slate-900 border border-slate-800 px-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-indigo-500 disabled:opacity-50"
         />
         <Button
           type="submit"
           variant="primary"
           size="md"
-          disabled={isStreaming || !input.trim()}
+          disabled={!isAIConfigured || isStreaming || !input.trim()}
           loading={isStreaming}
           className="px-4 self-stretch"
-          title={isEN ? 'Send message' : 'Отправить сообщение'}
-          aria-label={isEN ? 'Send message' : 'Отправить сообщение'}
+          title={t('ai.copilot.sendMessage')}
+          aria-label={t('ai.copilot.sendMessage')}
         >
           <Send className="w-4 h-4" />
         </Button>

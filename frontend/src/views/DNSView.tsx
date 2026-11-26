@@ -37,9 +37,8 @@ export const DNSView: React.FC<DNSViewProps> = ({
   onOpenAddServer,
 }) => {
   const { selectedServerId, setSelectedServerId } = useServer();
-  const { language } = useTranslation();
+  const { t } = useTranslation();
   const confirm = useConfirm();
-  const isEN = language === 'en';
 
   const [status, setStatus] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -100,20 +99,16 @@ export const DNSView: React.FC<DNSViewProps> = ({
     return (
       <EmptyState
         icon={<Globe2 className="w-8 h-8 text-indigo-400" />}
-        title={isEN ? 'DNS Server (BIND9)' : 'DNS-сервер (BIND9)'}
-        description={isEN ? 'Add a server to manage local BIND9 DNS zones and records.' : 'Добавьте сервер для управления локальными зонами BIND9 и DNS-записями.'}
-        action={<Button variant="primary" onClick={onOpenAddServer}>{isEN ? 'Add Server' : 'Добавить сервер'}</Button>}
+        title={t('dns.emptyTitle')}
+        description={t('dns.emptyDesc')}
+        action={<Button variant="primary" onClick={onOpenAddServer}>{t('dns.addServer')}</Button>}
       />
     );
   }
 
   const handleInstall = async () => {
     if (!selectedServerId) return;
-    const ok = await confirm(
-      isEN
-        ? 'Install and start BIND9 DNS server on this host?'
-        : 'Установить и запустить DNS-сервер BIND9 на этом сервере?'
-    );
+    const ok = await confirm(t('dns.installConfirm'));
     if (!ok) return;
     try {
       const task = await InstallBIND9(selectedServerId);
@@ -139,7 +134,7 @@ export const DNSView: React.FC<DNSViewProps> = ({
 
   const handleDeleteZone = async (domain: string) => {
     if (!selectedServerId) return;
-    const ok = await confirm(isEN ? `Delete DNS zone ${domain}?` : `Удалить DNS-зону ${domain}?`, { danger: true });
+    const ok = await confirm(t('dns.deleteZoneConfirm', { domain }), { danger: true });
     if (!ok) return;
     try {
       const task = await DeleteDNSZone(selectedServerId, domain);
@@ -155,11 +150,7 @@ export const DNSView: React.FC<DNSViewProps> = ({
 
   const handleSaveRecords = async () => {
     if (!selectedServerId || !selectedDomain) return;
-    const ok = await confirm(
-      isEN
-        ? `Save zone "${selectedDomain}" and reload BIND9?`
-        : `Сохранить записи зоны «${selectedDomain}» и перезагрузить BIND9?`
-    );
+    const ok = await confirm(t('dns.applyZoneConfirm', { domain: selectedDomain }));
     if (!ok) return;
     try {
       const task = await SaveDNSZoneRecords(selectedServerId, selectedDomain, records);
@@ -185,20 +176,20 @@ export const DNSView: React.FC<DNSViewProps> = ({
               size="sm"
               onClick={loadStatus}
               disabled={loading}
-              title={isEN ? 'Refresh DNS zones and status' : 'Обновить список зон и статус BIND9'}
-              aria-label={isEN ? 'Refresh DNS zones and status' : 'Обновить список зон и статус BIND9'}
+              title={t('dns.refreshTooltip')}
+              aria-label={t('dns.refreshTooltip')}
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             </Button>
             {!status?.installed ? (
               <Button variant="primary" size="sm" onClick={handleInstall}>
                 <Download className="w-3.5 h-3.5 mr-1.5" />
-                {isEN ? 'Install BIND9' : 'Установить BIND9'}
+                {t('dns.installBindBtn')}
               </Button>
             ) : (
               <Button variant="primary" size="sm" onClick={() => setIsCreateOpen(true)}>
                 <Plus className="w-3.5 h-3.5 mr-1.5" />
-                {isEN ? 'New Zone' : 'Новая зона'}
+                {t('dns.newZoneBtn')}
               </Button>
             )}
           </div>
@@ -214,9 +205,9 @@ export const DNSView: React.FC<DNSViewProps> = ({
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 space-y-3">
-          <h3 className="text-sm font-semibold text-slate-100">{isEN ? 'DNS Zones' : 'DNS-зоны'}</h3>
+          <h3 className="text-sm font-semibold text-slate-100">{t('dns.zonesHeading')}</h3>
           {(!status?.zones || status.zones.length === 0) ? (
-            <p className="text-xs text-slate-500">{isEN ? 'No zones configured.' : 'Зоны не созданы.'}</p>
+            <p className="text-xs text-slate-500">{t('dns.noZones')}</p>
           ) : (
             <div className="space-y-1.5">
               {status.zones.map((z: any) => (
@@ -237,8 +228,8 @@ export const DNSView: React.FC<DNSViewProps> = ({
                       e.stopPropagation();
                       handleDeleteZone(z.domain);
                     }}
-                    title={isEN ? 'Delete DNS zone' : 'Удалить DNS-зону'}
-                    aria-label={isEN ? 'Delete DNS zone' : 'Удалить DNS-зону'}
+                    title={t('dns.deleteZoneTooltip')}
+                    aria-label={t('dns.deleteZoneTooltip')}
                   >
                     <Trash2 className="w-3.5 h-3.5 text-rose-400" />
                   </Button>
@@ -251,7 +242,7 @@ export const DNSView: React.FC<DNSViewProps> = ({
         <div className="lg:col-span-2 bg-slate-900/70 border border-slate-800 rounded-2xl p-4 space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-slate-100">
-              {selectedDomain ? `${isEN ? 'Zone Records:' : 'Записи зоны:'} ${selectedDomain}` : (isEN ? 'Select a zone' : 'Выберите зону')}
+              {selectedDomain ? t('dns.zoneRecordsTitle', { domain: selectedDomain }) : t('dns.selectZonePrompt')}
             </h3>
             {selectedDomain && (
               <div className="flex items-center gap-2">
@@ -261,11 +252,11 @@ export const DNSView: React.FC<DNSViewProps> = ({
                   onClick={() => setRecords([...records, { name: '@', ttl: 3600, type: 'A', priority: 0, value: '' }])}
                 >
                   <Plus className="w-3.5 h-3.5 mr-1" />
-                  {isEN ? 'Add Record' : 'Запись'}
+                  {t('dns.addRecordBtn')}
                 </Button>
                 <Button variant="primary" size="sm" onClick={handleSaveRecords}>
                   <Save className="w-3.5 h-3.5 mr-1.5" />
-                  {isEN ? 'Save Zone' : 'Сохранить'}
+                  {t('dns.saveZoneBtn')}
                 </Button>
               </div>
             )}
@@ -288,8 +279,8 @@ export const DNSView: React.FC<DNSViewProps> = ({
                       next[idx] = { ...rec, type: e.target.value };
                       setRecords(next);
                     }}>
-                      {['A', 'AAAA', 'CNAME', 'MX', 'TXT', 'NS', 'SRV', 'CAA'].map((t) => (
-                        <option key={t} value={t}>{t}</option>
+                      {['A', 'AAAA', 'CNAME', 'MX', 'TXT', 'NS', 'SRV', 'CAA'].map((recType) => (
+                        <option key={recType} value={recType}>{recType}</option>
                       ))}
                     </Select>
                   </div>
@@ -313,8 +304,8 @@ export const DNSView: React.FC<DNSViewProps> = ({
                       variant="ghost"
                       size="sm"
                       onClick={() => setRecords(records.filter((_, i) => i !== idx))}
-                      title={isEN ? 'Remove record' : 'Удалить запись'}
-                      aria-label={isEN ? 'Remove record' : 'Удалить запись'}
+                      title={t('dns.removeRecordTooltip')}
+                      aria-label={t('dns.removeRecordTooltip')}
                     >
                       <Trash2 className="w-3.5 h-3.5 text-rose-400" />
                     </Button>
@@ -327,21 +318,21 @@ export const DNSView: React.FC<DNSViewProps> = ({
       </div>
 
       {isCreateOpen && (
-        <ModalShell onClose={() => setIsCreateOpen(false)} title={isEN ? 'Create DNS Zone' : 'Создать DNS-зону'} icon={<Globe2 className="w-5 h-5" />}>
+        <ModalShell onClose={() => setIsCreateOpen(false)} title={t('dns.createZoneModalTitle')} icon={<Globe2 className="w-5 h-5" />}>
           <form onSubmit={handleCreateZone}>
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-xs text-slate-400 mb-1.5">{isEN ? 'Domain' : 'Домен'}</label>
+                <label className="block text-xs text-slate-400 mb-1.5">{t('dns.domainLabel')}</label>
                 <Input value={newDomain} onChange={(e) => setNewDomain(e.target.value)} placeholder="example.com" required />
               </div>
               <div>
-                <label className="block text-xs text-slate-400 mb-1.5">{isEN ? 'Server IP (optional)' : 'IP-адрес сервера (опционально)'}</label>
+                <label className="block text-xs text-slate-400 mb-1.5">{t('dns.serverIpLabel')}</label>
                 <Input value={newServerIP} onChange={(e) => setNewServerIP(e.target.value)} placeholder="1.2.3.4" />
               </div>
             </div>
             <div className="px-6 py-3.5 border-t border-slate-800 bg-slate-950/80 flex items-center justify-end gap-2">
-              <Button type="button" variant="ghost" onClick={() => setIsCreateOpen(false)}>{isEN ? 'Cancel' : 'Отмена'}</Button>
-              <Button type="submit" variant="primary">{isEN ? 'Create Zone' : 'Создать'}</Button>
+              <Button type="button" variant="ghost" onClick={() => setIsCreateOpen(false)}>{t('dns.cancel')}</Button>
+              <Button type="submit" variant="primary">{t('dns.createZoneBtn')}</Button>
             </div>
           </form>
         </ModalShell>

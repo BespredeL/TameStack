@@ -145,10 +145,7 @@ export const TerminalAIPanel: React.FC<TerminalAIPanelProps> = ({
         const msgs = (await AIListMessages(existing.id)) as AIMessageRecord[];
         setMessages(msgs || []);
       } else {
-        const sysPrompt =
-          language === 'en'
-            ? `You are AI Assistant for the Linux SSH terminal in TameStack. You assist the system administrator directly with console tasks and errors. When recommending commands, provide exact, ready-to-run shell commands inside markdown blocks (\`\`\`bash ... \`\`\`). Do not prepend '$ ' or '# '. Keep explanations concise.`
-            : `Ты — AI ассистент для Linux SSH терминала в TameStack. Твоя задача — помогать системному администратору прямо в консоли. При рекомендации команд всегда пиши точные, готовые к выполнению команды в markdown-блоках (\`\`\`bash ... \`\`\`). Не ставь знаки '$ ' или '# ' перед командами. Давай краткие и четкие пояснения.`;
+        const sysPrompt = t('ai.terminalPanel.systemPromptInit');
 
         const created = await AICreateConversation(
           `${termTitlePrefix} (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`,
@@ -229,7 +226,7 @@ export const TerminalAIPanel: React.FC<TerminalAIPanelProps> = ({
 
     let fullPrompt = textToSend;
     if (includeContext && currentBuffer) {
-      const header = language === 'en' ? '[Terminal output context (recent lines)]:' : '[Контекст вывода терминала (последние строки)]:';
+      const header = t('ai.terminalPanel.contextHeader');
       fullPrompt = `${header}\n\`\`\`terminal\n${currentBuffer}\n\`\`\`\n\n${textToSend}`;
     }
 
@@ -260,10 +257,7 @@ export const TerminalAIPanel: React.FC<TerminalAIPanelProps> = ({
   const handleClearChat = async () => {
     if (!activeTab) return;
     try {
-      const sysPrompt =
-        language === 'en'
-          ? `You are AI Assistant for the Linux SSH terminal in TameStack. When recommending commands, provide exact, ready-to-run shell commands inside markdown blocks (\`\`\`bash ... \`\`\`). Keep explanations concise.`
-          : `Ты — AI ассистент для Linux SSH терминала в TameStack. При рекомендации команд всегда пиши точные, готовые к выполнению команды в markdown-блоках (\`\`\`bash ... \`\`\`). Давай краткие и четкие пояснения.`;
+      const sysPrompt = t('ai.terminalPanel.systemPromptClear');
 
       const created = await AICreateConversation(
         `Terminal: ${activeTab.serverName} (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`,
