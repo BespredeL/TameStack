@@ -1,4 +1,4 @@
-﻿package main
+package main
 
 import (
 	"context"
@@ -42,7 +42,9 @@ func (a *App) InstallUpdate() error {
 		return err
 	}
 
-	a.pendingRestart.Store(true)
+	if !a.updateService.IsElevatedPending() {
+		a.pendingRestart.Store(true)
+	}
 	wailsRuntime.EventsEmit(a.ctx, "update:ready", map[string]string{})
 	wailsRuntime.Quit(a.ctx)
 	return nil

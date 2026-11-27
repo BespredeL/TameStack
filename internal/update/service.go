@@ -78,12 +78,14 @@ type Service struct {
 	webBaseURL string // defaults to "https://github.com"
 	client     *http.Client
 
-	target string // binary to replace; defaults to os.Executable()
+	target    string // binary to replace; defaults to os.Executable()
+	elevateFn func(sourceExe, targetExe string, waitPID int) error
 
-	mu           sync.Mutex
-	cachedResult *CheckResult
-	cachedAt     time.Time
-	cachedETag   string
+	mu              sync.Mutex
+	cachedResult    *CheckResult
+	cachedAt        time.Time
+	cachedETag      string
+	elevatedPending bool
 }
 
 func newHTTPClient() *http.Client {
@@ -393,13 +395,27 @@ func (s *Service) resolveTarget() (string, error) {
 	return exe, nil
 }
 
+// IsElevatedPending reports whether the last Install() call handed off the
+// binary swap to an elevated helper process via UAC.
+func (s *Service) IsElevatedPending() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.elevatedPending
+}
+
 // Install downloads the platform asset, verifies its GitHub-provided SHA-256
 // digest, extracts the binary and swaps it under the running executable.
+// When the installation directory is write-protected (e.g. Program Files),
+// the verified binary is staged in %TEMP% and applied via UAC elevation.
 // onProgress may be nil. The caller decides when to restart the app.
 func (s *Service) Install(ctx context.Context, onProgress func(Progress)) error {
 	if runtime.GOOS != "windows" {
 		return fmt.Errorf("автообновление доступно только в Windows; скачайте сборку вручную")
 	}
+
+	s.mu.Lock()
+	s.elevatedPending = false
+	s.mu.Unlock()
 
 	target, err := s.resolveTarget()
 	if err != nil {
@@ -418,15 +434,22 @@ func (s *Service) Install(ctx context.Context, onProgress func(Progress)) error 
 		return fmt.Errorf("в релизе %s нет архива для этой платформы", result.LatestVersion)
 	}
 
-	if !isDirWritable(filepath.Dir(target)) {
-		return fmt.Errorf("каталог программы защищён от записи (Program Files); скачайте и запустите установщик новой версии")
+	writable := isDirWritable(filepath.Dir(target))
+	var staging string
+	if writable {
+		staging, err = os.MkdirTemp(filepath.Dir(target), ".shupdate-")
+	} else {
+		staging, err = os.MkdirTemp("", "tamestack-update-*")
 	}
-
-	staging, err := os.MkdirTemp(filepath.Dir(target), ".shupdate-")
 	if err != nil {
 		return fmt.Errorf("не удалось подготовить каталог обновления: %w", err)
 	}
-	defer os.RemoveAll(staging)
+	cleanupStaging := true
+	defer func() {
+		if cleanupStaging {
+			_ = os.RemoveAll(staging)
+		}
+	}()
 
 	report := func(p Progress) {
 		if onProgress != nil {
@@ -459,9 +482,24 @@ func (s *Service) Install(ctx context.Context, onProgress func(Progress)) error 
 	}
 
 	report(Progress{Phase: "installing", Downloaded: 0, Total: 0})
-	if err := swapBinary(binaryPath, target); err != nil {
-		return err
+	if writable {
+		if err := swapBinary(binaryPath, target); err != nil {
+			return err
+		}
+		return nil
 	}
+
+	elevate := s.elevateFn
+	if elevate == nil {
+		elevate = SpawnElevatedApply
+	}
+	if err := elevate(binaryPath, target, os.Getpid()); err != nil {
+		return fmt.Errorf("для обновления в защищённом каталоге требуются права администратора: %w", err)
+	}
+	cleanupStaging = false
+	s.mu.Lock()
+	s.elevatedPending = true
+	s.mu.Unlock()
 	return nil
 }
 

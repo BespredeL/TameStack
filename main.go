@@ -6,7 +6,10 @@ package main
 import (
 	"embed"
 	"log"
+	"os"
 	"path/filepath"
+
+	"tamestack/internal/update"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
@@ -14,12 +17,16 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
 )
 
-var AppVersion = "1.16.1"
+var AppVersion = "1.16.2"
 
 //go:embed all:frontend/dist
 var assets embed.FS
 
 func main() {
+	if update.HandleApplyUpdateArgs(os.Args[1:]) {
+		return
+	}
+
 	app, err := NewApp()
 	if err != nil {
 		log.Fatalf("TameStack failed to start: %v", err)

@@ -530,3 +530,43 @@ func TestCheckWebRedirectFallback(t *testing.T) {
 		t.Fatalf("expected synthetic asset to be found, got false")
 	}
 }
+
+func TestHandleApplyUpdateArgs(t *testing.T) {
+	if HandleApplyUpdateArgs([]string{"--foo"}) {
+		t.Fatal("expected HandleApplyUpdateArgs to return false for normal args")
+	}
+
+	dir := t.TempDir()
+	staging := filepath.Join(dir, "tamestack-update-1234")
+	if err := os.MkdirAll(staging, 0755); err != nil {
+		t.Fatalf("mkdir staging: %v", err)
+	}
+	src := filepath.Join(staging, "TameStack.exe")
+	dst := filepath.Join(dir, "TameStack.exe")
+	if err := os.WriteFile(src, []byte("NEW-BIN"), 0755); err != nil {
+		t.Fatalf("write src: %v", err)
+	}
+	if err := os.WriteFile(dst, []byte("OLD-BIN"), 0755); err != nil {
+		t.Fatalf("write dst: %v", err)
+	}
+
+	handled := HandleApplyUpdateArgs([]string{
+		"--apply-update",
+		"--source", src,
+		"--target", dst,
+		"--wait-pid", "0",
+	})
+	if !handled {
+		t.Fatal("expected HandleApplyUpdateArgs to handle --apply-update")
+	}
+	got, err := os.ReadFile(dst)
+	if err != nil {
+		t.Fatalf("read target: %v", err)
+	}
+	if string(got) != "NEW-BIN" {
+		t.Fatalf("expected target to contain NEW-BIN, got %q", got)
+	}
+	if _, err := os.Stat(staging); !os.IsNotExist(err) {
+		t.Fatalf("expected staging dir to be cleaned up, got err=%v", err)
+	}
+}
