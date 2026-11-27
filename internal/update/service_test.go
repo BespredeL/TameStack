@@ -570,3 +570,139 @@ func TestHandleApplyUpdateArgs(t *testing.T) {
 		t.Fatalf("expected staging dir to be cleaned up, got err=%v", err)
 	}
 }
+
+func TestInstallWebRedirectFallbackWithExpandedAssetsDigest(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("self-update swap is Windows-only")
+	}
+	dir := t.TempDir()
+	target := filepath.Join(dir, "TameStack.exe")
+	if err := os.WriteFile(target, []byte("OLD-EXE"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	exeBytes := []byte("NEW-WEB-EXE")
+	sum := sha256.Sum256(exeBytes)
+	digest := "sha256:" + hex.EncodeToString(sum[:])
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/repos/test/repo/releases/latest", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+	})
+	mux.HandleFunc("/test/repo/releases/latest", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Location", "/test/repo/releases/tag/v3.0.0")
+		w.WriteHeader(http.StatusFound)
+	})
+	mux.HandleFunc("/test/repo/releases/download/v3.0.0/"+platformAsset(), func(w http.ResponseWriter, r *http.Request) {
+		w.Write(exeBytes)
+	})
+	mux.HandleFunc("/test/repo/releases/expanded_assets/v3.0.0", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, `<clipboard-copy aria-label="Copy to clipboard digest for %s" type="button" value="%s"></clipboard-copy>`, platformAsset(), digest)
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+
+	s := NewService("test/repo", "1.0.0")
+	s.baseURL = srv.URL
+	s.webBaseURL = srv.URL
+	s.client = srv.Client()
+	s.target = target
+
+	if err := s.Install(context.Background(), nil); err != nil {
+		t.Fatalf("Install failed with web fallback: %v", err)
+	}
+	got, err := os.ReadFile(target)
+	if err != nil || string(got) != "NEW-WEB-EXE" {
+		t.Fatalf("binary not updated: %q %v", got, err)
+	}
+}
+
+func TestInstallWebRedirectFallbackDigestMismatchAborts(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("self-update swap is Windows-only")
+	}
+	dir := t.TempDir()
+	target := filepath.Join(dir, "TameStack.exe")
+	if err := os.WriteFile(target, []byte("OLD-EXE"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	exeBytes := []byte("NEW-WEB-EXE")
+	wrongDigest := "sha256:" + hex.EncodeToString(make([]byte, 32))
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/repos/test/repo/releases/latest", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+	})
+	mux.HandleFunc("/test/repo/releases/latest", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Location", "/test/repo/releases/tag/v3.0.0")
+		w.WriteHeader(http.StatusFound)
+	})
+	mux.HandleFunc("/test/repo/releases/download/v3.0.0/"+platformAsset(), func(w http.ResponseWriter, r *http.Request) {
+		w.Write(exeBytes)
+	})
+	mux.HandleFunc("/test/repo/releases/expanded_assets/v3.0.0", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, `<clipboard-copy aria-label="Copy to clipboard digest for %s" type="button" value="%s"></clipboard-copy>`, platformAsset(), wrongDigest)
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+
+	s := NewService("test/repo", "1.0.0")
+	s.baseURL = srv.URL
+	s.webBaseURL = srv.URL
+	s.client = srv.Client()
+	s.target = target
+
+	if err := s.Install(context.Background(), nil); err == nil {
+		t.Fatal("expected digest mismatch error")
+	}
+	got, _ := os.ReadFile(target)
+	if string(got) != "OLD-EXE" {
+		t.Fatalf("target modified despite mismatch: %q", got)
+	}
+}
+
+func TestInstallAssetAPIRateLimitedFallsBackToWeb(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("self-update swap is Windows-only")
+	}
+	dir := t.TempDir()
+	target := filepath.Join(dir, "TameStack.exe")
+	if err := os.WriteFile(target, []byte("OLD-EXE"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	exeBytes := []byte("NEW-API-FALLBACK-EXE")
+	sum := sha256.Sum256(exeBytes)
+	digest := "sha256:" + hex.EncodeToString(sum[:])
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/repos/test/repo/releases/latest", func(w http.ResponseWriter, r *http.Request) {
+		w.Write(releaseJSON(t, r, "v9.9.9", []assetFixture{{42, platformAsset(), "/download/42"}}))
+	})
+	mux.HandleFunc("/repos/test/repo/releases/assets/42", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+	})
+	mux.HandleFunc("/download/42", func(w http.ResponseWriter, r *http.Request) {
+		w.Write(exeBytes)
+	})
+	mux.HandleFunc("/test/repo/releases/expanded_assets/v9.9.9", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, `<clipboard-copy aria-label="Copy to clipboard digest for %s" type="button" value="%s"></clipboard-copy>`, platformAsset(), digest)
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+
+	s := NewService("test/repo", "1.0.0")
+	s.baseURL = srv.URL
+	s.webBaseURL = srv.URL
+	s.client = srv.Client()
+	s.target = target
+
+	if err := s.Install(context.Background(), nil); err != nil {
+		t.Fatalf("Install failed when asset API rate-limited: %v", err)
+	}
+	got, err := os.ReadFile(target)
+	if err != nil || string(got) != "NEW-API-FALLBACK-EXE" {
+		t.Fatalf("binary not updated: %q %v", got, err)
+	}
+}

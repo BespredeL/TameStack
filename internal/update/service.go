@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"sync"
@@ -40,6 +41,7 @@ type Asset struct {
 	Name        string `json:"name"`
 	DownloadURL string `json:"browser_download_url"`
 	Size        int64  `json:"size"`
+	Digest      string `json:"digest,omitempty"`
 }
 
 // Release mirrors the fields of the GitHub releases/latest payload.
@@ -465,7 +467,7 @@ func (s *Service) Install(ctx context.Context, onProgress func(Progress)) error 
 	}
 
 	report(Progress{Phase: "verifying", Downloaded: 0, Total: 0})
-	if err := s.verifyDigest(ctx, asset, archivePath); err != nil {
+	if err := s.verifyDigest(ctx, result.Release, asset, archivePath); err != nil {
 		os.Remove(archivePath)
 		return err
 	}
@@ -561,46 +563,15 @@ func (s *Service) download(ctx context.Context, url, destPath string, onBytes fu
 // verifyDigest checks the archive against the SHA-256 digest GitHub publishes
 // for the asset. A missing digest is a hard failure: an unverified binary is
 // never swapped in.
-func (s *Service) verifyDigest(ctx context.Context, asset *Asset, archivePath string) error {
-	if asset.ID <= 0 {
-		return fmt.Errorf("контрольная сумма недоступна через GitHub API; скачайте обновление по кнопке «Открыть страницу релиза»")
-	}
-	url := fmt.Sprintf("%s/repos/%s/releases/assets/%d", s.baseURL, s.repo, asset.ID)
-	reqCtx, cancel := context.WithTimeout(ctx, checkTimeout)
-	defer cancel()
-
-	req, err := s.newRequest(reqCtx, url)
+func (s *Service) verifyDigest(ctx context.Context, release *Release, asset *Asset, archivePath string) error {
+	digest, err := s.resolveDigest(ctx, release, asset)
 	if err != nil {
 		return err
 	}
-	resp, err := s.client.Do(req)
+
+	want, err := parseSHA256Digest(digest)
 	if err != nil {
-		return fmt.Errorf("не удалось получить контрольную сумму: %w", err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("GitHub вернул статус %d для контрольной суммы", resp.StatusCode)
-	}
-
-	var meta struct {
-		Digest string `json:"digest"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&meta); err != nil {
-		return fmt.Errorf("некорректный ответ с контрольной суммой: %w", err)
-	}
-
-	var rawHex string
-	switch {
-	case strings.HasPrefix(meta.Digest, "sha256:"):
-		rawHex = strings.TrimPrefix(meta.Digest, "sha256:")
-	case strings.HasPrefix(meta.Digest, "sha256="):
-		rawHex = strings.TrimPrefix(meta.Digest, "sha256=")
-	default:
-		return fmt.Errorf("GitHub не опубликовал SHA-256 для этого релиза — обновление заблокировано")
-	}
-	want, err := hex.DecodeString(rawHex)
-	if err != nil || len(want) != sha256.Size {
-		return fmt.Errorf("некорректная контрольная сумма от GitHub")
+		return err
 	}
 
 	got, err := fileSHA256(archivePath)
@@ -611,6 +582,129 @@ func (s *Service) verifyDigest(ctx context.Context, asset *Asset, archivePath st
 		return fmt.Errorf("контрольная сумма архива не совпала — обновление отменено")
 	}
 	return nil
+}
+
+func (s *Service) resolveDigest(ctx context.Context, release *Release, asset *Asset) (string, error) {
+	if asset.Digest != "" {
+		return asset.Digest, nil
+	}
+
+	if asset.ID > 0 {
+		digest, rateLimited, err := s.fetchDigestFromAPI(ctx, asset.ID)
+		if err == nil {
+			return digest, nil
+		}
+		if !rateLimited {
+			return "", err
+		}
+	}
+
+	if release != nil && release.TagName != "" {
+		if digest, err := s.fetchDigestFromWeb(ctx, release.TagName, asset.Name); err == nil {
+			return digest, nil
+		}
+	}
+
+	return "", fmt.Errorf("контрольная сумма недоступна через GitHub API; скачайте обновление по кнопке «Открыть страницу релиза»")
+}
+
+func (s *Service) fetchDigestFromAPI(ctx context.Context, assetID int64) (string, bool, error) {
+	url := fmt.Sprintf("%s/repos/%s/releases/assets/%d", s.baseURL, s.repo, assetID)
+	reqCtx, cancel := context.WithTimeout(ctx, checkTimeout)
+	defer cancel()
+
+	req, err := s.newRequest(reqCtx, url)
+	if err != nil {
+		return "", false, err
+	}
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return "", false, fmt.Errorf("не удалось получить контрольную сумму: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusTooManyRequests {
+		return "", true, fmt.Errorf("превышен лимит обращений к GitHub, попробуйте позже")
+	}
+	if resp.StatusCode != http.StatusOK {
+		return "", false, fmt.Errorf("GitHub вернул статус %d для контрольной суммы", resp.StatusCode)
+	}
+
+	var meta struct {
+		Digest string `json:"digest"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&meta); err != nil {
+		return "", false, fmt.Errorf("некорректный ответ с контрольной суммой: %w", err)
+	}
+	return meta.Digest, false, nil
+}
+
+var (
+	clipboardCopyTagRe = regexp.MustCompile(`(?is)<clipboard-copy\b[^>]*>`)
+	sha256ValueAttrRe  = regexp.MustCompile(`(?i)\bvalue="(sha256:[0-9a-f]{64})"`)
+)
+
+func (s *Service) fetchDigestFromWeb(ctx context.Context, tag, assetName string) (string, error) {
+	webBase := s.webBaseURL
+	if webBase == "" {
+		webBase = "https://github.com"
+	}
+	url := fmt.Sprintf("%s/%s/releases/expanded_assets/%s", webBase, s.repo, tag)
+	reqCtx, cancel := context.WithTimeout(ctx, checkTimeout)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, url, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("User-Agent", userAgent)
+
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("unexpected status %d from expanded_assets", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
+	if err != nil {
+		return "", err
+	}
+
+	return extractDigestFromExpandedAssetsHTML(string(body), assetName)
+}
+
+func extractDigestFromExpandedAssetsHTML(html, assetName string) (string, error) {
+	wantLabel := `aria-label="Copy to clipboard digest for ` + assetName + `"`
+	for _, tag := range clipboardCopyTagRe.FindAllString(html, -1) {
+		if !strings.Contains(tag, wantLabel) {
+			continue
+		}
+		if m := sha256ValueAttrRe.FindStringSubmatch(tag); len(m) == 2 {
+			return m[1], nil
+		}
+	}
+	return "", fmt.Errorf("digest for %s not found on release page", assetName)
+}
+
+func parseSHA256Digest(digest string) ([]byte, error) {
+	var rawHex string
+	switch {
+	case strings.HasPrefix(digest, "sha256:"):
+		rawHex = strings.TrimPrefix(digest, "sha256:")
+	case strings.HasPrefix(digest, "sha256="):
+		rawHex = strings.TrimPrefix(digest, "sha256=")
+	default:
+		return nil, fmt.Errorf("GitHub не опубликовал SHA-256 для этого релиза — обновление заблокировано")
+	}
+	want, err := hex.DecodeString(rawHex)
+	if err != nil || len(want) != sha256.Size {
+		return nil, fmt.Errorf("некорректная контрольная сумма от GitHub")
+	}
+	return want, nil
 }
 
 func isDirWritable(dir string) bool {
