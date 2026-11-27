@@ -31,6 +31,7 @@ import { useTranslation } from '../i18n/LanguageContext';
 import { useAlert } from '../context/AlertContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { useServer } from '../context/ServerContext';
+import { usePrivacy } from '../context/PrivacyContext';
 
 interface SitesViewProps {
   servers: ServerRecord[];
@@ -53,6 +54,7 @@ export const SitesView: React.FC<SitesViewProps> = ({
   const { t, language } = useTranslation();
   const alert = useAlert();
   const confirm = useConfirm();
+  const { maskDomain, maskPath } = usePrivacy();
   const [search, setSearch] = useState('');
   const [isDiscovering, setIsDiscovering] = useState(false);
   const [discoverMessage, setDiscoverMessage] = useState<string | null>(null);
@@ -274,8 +276,8 @@ export const SitesView: React.FC<SitesViewProps> = ({
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-2">
-                      <h3 className="font-bold text-white text-sm tracking-wide truncate" title={s.domain}>
-                        {s.domain}
+                      <h3 className="font-bold text-white text-sm tracking-wide truncate" title={maskDomain(s.domain)}>
+                        {maskDomain(s.domain)}
                       </h3>
                       <div className="flex items-center gap-1.5 shrink-0">
                         <Badge
@@ -321,11 +323,11 @@ export const SitesView: React.FC<SitesViewProps> = ({
                     <Folder className="w-3 h-3 text-indigo-400 shrink-0" />
                     <span className="uppercase">{t('sites.docRoot')}</span>
                   </div>
-                  <div className="font-mono text-slate-300 truncate text-[11px]" title={s.document_root}>
-                    {s.document_root}
+                  <div className="font-mono text-slate-300 truncate text-[11px]" title={maskPath(s.document_root)}>
+                    {maskPath(s.document_root)}
                   </div>
-                  <div className="font-mono text-slate-500 truncate text-[11px] min-h-[1rem]" title={s.aliases?.join(', ')}>
-                    {s.aliases && s.aliases.length > 0 ? `Aliases: ${s.aliases.join(', ')}` : '\u00a0'}
+                  <div className="font-mono text-slate-500 truncate text-[11px] min-h-[1rem]" title={s.aliases?.map(maskDomain).join(', ')}>
+                    {s.aliases && s.aliases.length > 0 ? `Aliases: ${s.aliases.map(maskDomain).join(', ')}` : '\u00a0'}
                   </div>
                 </div>
 

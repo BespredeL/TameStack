@@ -1,7 +1,8 @@
-﻿package chat
+package chat
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"tamestack/internal/ai/domain"
@@ -63,12 +64,15 @@ func appendToolCallDelta(calls []domain.ToolCall, tc *domain.ToolCall) []domain.
 	return calls
 }
 
-// normalizeToolCalls drops calls with empty names and defaults empty arguments
-// to "{}".
+// normalizeToolCalls drops calls with empty names, defaults empty arguments
+// to "{}", and assigns a deterministic ID when providers omit tool call IDs.
 func normalizeToolCalls(calls []domain.ToolCall) []domain.ToolCall {
 	var valid []domain.ToolCall
-	for _, tc := range calls {
+	for i, tc := range calls {
 		if strings.TrimSpace(tc.Function.Name) != "" {
+			if strings.TrimSpace(tc.ID) == "" {
+				tc.ID = fmt.Sprintf("call_%d", i+1)
+			}
 			if strings.TrimSpace(tc.Function.Arguments) == "" {
 				tc.Function.Arguments = "{}"
 			}

@@ -5,6 +5,7 @@ import { CheckCircle2, AlertTriangle, Layers, Save, Folder, Globe, Power } from 
 import { db } from '../../wailsjs/go/models';
 import { useTranslation } from '../i18n/LanguageContext';
 import { useConfirm } from '../context/ConfirmContext';
+import { usePrivacy } from '../context/PrivacyContext';
 import { Button, Input, Select, Badge } from './ui';
 import {
   SwitchSitePHPVersion,
@@ -23,6 +24,7 @@ interface SiteOverviewTabProps {
 export const SiteOverviewTab: React.FC<SiteOverviewTabProps> = ({ site, serverID, onSiteChange, onSiteUpdated }) => {
   const { t } = useTranslation();
   const confirm = useConfirm();
+  const { isPrivacyMode, maskPath, maskDomain } = usePrivacy();
   const [docRoot, setDocRoot] = useState(site.document_root);
   const [aliases, setAliases] = useState((site.aliases || []).join(', '));
   const [selectedPHP, setSelectedPHP] = useState(site.php_version || '8.2');
@@ -193,8 +195,9 @@ export const SiteOverviewTab: React.FC<SiteOverviewTabProps> = ({ site, serverID
           </label>
           <Input
             type="text"
-            value={docRoot}
+            value={isPrivacyMode ? maskPath(docRoot) : docRoot}
             onChange={(e) => setDocRoot(e.target.value)}
+            readOnly={isPrivacyMode}
             placeholder="/var/www/site/public"
             className="font-mono"
           />
@@ -210,8 +213,18 @@ export const SiteOverviewTab: React.FC<SiteOverviewTabProps> = ({ site, serverID
           </label>
           <Input
             type="text"
-            value={aliases}
+            value={
+              isPrivacyMode
+                ? aliases
+                    .split(',')
+                    .map((a) => a.trim())
+                    .filter(Boolean)
+                    .map(maskDomain)
+                    .join(', ')
+                : aliases
+            }
             onChange={(e) => setAliases(e.target.value)}
+            readOnly={isPrivacyMode}
             placeholder="www.example.com, stage.example.com"
             className="font-mono"
           />
@@ -233,7 +246,7 @@ export const SiteOverviewTab: React.FC<SiteOverviewTabProps> = ({ site, serverID
 
           <Button
             onClick={handleSaveGeneralSettings}
-            disabled={isSavingSettings}
+            disabled={isSavingSettings || isPrivacyMode}
             loading={isSavingSettings}
             variant="primary"
             size="md"

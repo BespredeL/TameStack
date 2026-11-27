@@ -1,4 +1,4 @@
-﻿package chat
+package chat
 
 import (
 	"context"
@@ -119,4 +119,20 @@ func TestChatService(t *testing.T) {
 	}
 
 	_ = database.Close()
+}
+
+func TestNormalizeToolCallsAssignsFallbackID(t *testing.T) {
+	calls := normalizeToolCalls([]domain.ToolCall{
+		{ID: "", Function: domain.FunctionCall{Name: "analyze_disk_usage", Arguments: ""}},
+		{ID: "call_custom", Function: domain.FunctionCall{Name: "get_system_metrics", Arguments: `{"server_id":"1"}`}},
+	})
+	if len(calls) != 2 {
+		t.Fatalf("expected 2 normalized calls, got %d", len(calls))
+	}
+	if calls[0].ID != "call_1" || calls[0].Function.Arguments != "{}" {
+		t.Fatalf("unexpected first call: %+v", calls[0])
+	}
+	if calls[1].ID != "call_custom" {
+		t.Fatalf("unexpected second call ID: %q", calls[1].ID)
+	}
 }

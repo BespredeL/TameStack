@@ -50,6 +50,7 @@ import { useAlert } from '../context/AlertContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { getErrorMessage } from '../utils/errors';
 import { useServer } from '../context/ServerContext';
+import { usePrivacy } from '../context/PrivacyContext';
 
 interface AIViewProps {
   servers: ServerRecord[];
@@ -66,6 +67,7 @@ export const AIView: React.FC<AIViewProps> = ({
   const alert = useAlert();
   const confirm = useConfirm();
   const { selectedServerId: globalServerId } = useServer();
+  const { maskServerName, maskHost, maskText } = usePrivacy();
 
   const [conversations, setConversations] = useState<AIConversationRecord[]>([]);
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
@@ -536,12 +538,12 @@ export const AIView: React.FC<AIViewProps> = ({
                   >
                     <Bot className={`w-4 h-4 mt-0.5 shrink-0 ${active ? 'text-indigo-400' : 'text-slate-500'}`} />
                     <div className="flex-1 min-w-0 pr-6">
-                      <div className="font-medium truncate">{conv.title}</div>
+                      <div className="font-medium truncate">{maskText(conv.title)}</div>
                       <div className="text-[10px] text-slate-500 flex items-center gap-1.5 mt-0.5">
                         {boundServer ? (
                           <span className="truncate flex items-center gap-1 text-slate-400">
                             <Server className="w-2.5 h-2.5 text-indigo-400 shrink-0" />
-                            <span className="truncate">{boundServer.name}</span>
+                            <span className="truncate">{maskServerName(boundServer.name)}</span>
                           </span>
                         ) : (
                           <span>{t('ai.globalContext')}</span>
@@ -621,7 +623,7 @@ export const AIView: React.FC<AIViewProps> = ({
             </div>
             <div className="min-w-0">
               <h2 className="text-xs sm:text-sm font-bold text-white truncate max-w-xs sm:max-w-sm md:max-w-md">
-                {activeConv ? activeConv.title : t('ai.defaultAssistantTitle')}
+                {activeConv ? maskText(activeConv.title) : t('ai.defaultAssistantTitle')}
               </h2>
             </div>
           </div>
@@ -643,7 +645,7 @@ export const AIView: React.FC<AIViewProps> = ({
                 </option>
                 {servers.map((s) => (
                   <option key={s.id} value={s.id} className="bg-slate-900 text-white">
-                    {s.name} ({s.host})
+                    {maskServerName(s.name)} ({maskHost(s.host)})
                   </option>
                 ))}
               </select>

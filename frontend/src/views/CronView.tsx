@@ -34,6 +34,7 @@ import { NoServersEmptyState } from '../components/NoServersEmptyState';
 import { useTranslation } from '../i18n/LanguageContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { useServer } from '../context/ServerContext';
+import { usePrivacy } from '../context/PrivacyContext';
 
 interface CronViewProps {
   servers: ServerRecord[];
@@ -50,6 +51,7 @@ export const CronView: React.FC<CronViewProps> = ({
   } = useServer();
   const { t } = useTranslation();
   const confirm = useConfirm();
+  const { maskUser, maskPath, maskText } = usePrivacy();
   const [selectedUser, setSelectedUser] = useState<string>('root');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
@@ -241,23 +243,23 @@ export const CronView: React.FC<CronViewProps> = ({
                       {job.source && job.source !== 'crontab' && (
                         <span
                           className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-slate-800 border border-slate-700 text-slate-300 font-normal"
-                          title={job.source}
+                          title={maskPath(job.source)}
                         >
-                          {job.source.replace('/etc/cron.d/', 'cron.d/')}
+                          {maskPath(job.source).replace('/etc/cron.d/', 'cron.d/')}
                         </span>
                       )}
                     </div>
                   </TableCell>
-                  <TableCell className="font-mono text-slate-200 text-[11px] max-w-md truncate" title={job.command}>
+                  <TableCell className="font-mono text-slate-200 text-[11px] max-w-md truncate" title={maskText(job.command)}>
                     {selectedUser === 'all' && (
                       <span className="text-indigo-400/90 font-sans mr-2 font-semibold bg-indigo-500/10 px-1.5 py-0.5 rounded border border-indigo-500/20 text-[10px]">
-                        {job.user}
+                        {maskUser(job.user)}
                       </span>
                     )}
-                    {job.command}
+                    {maskText(job.command)}
                   </TableCell>
                   <TableCell className="text-slate-400">
-                    {job.comment || <span className="text-slate-600 italic">{t('cron.noDescription')}</span>}
+                    {job.comment ? maskText(job.comment) : <span className="text-slate-600 italic">{t('cron.noDescription')}</span>}
                   </TableCell>
                   <TableCell className="text-right pr-4">
                     <div className="flex items-center justify-end gap-1.5">

@@ -62,7 +62,8 @@ const DefaultSystemPromptTextRU = `Ты — TameStack AI Assistant, Senior DevOp
    - Проверить статус веб-сервера, PHP-FPM или приложения через get_service_status, get_service_logs или get_app_process_status.
    - Проверить стек и режим PHP через check_web_topology (или inspect_site_app для конкретного сайта).
 4. Только после получения реальных данных из инструментов чтения давай пользователю исчерпывающий технический анализ первопричины и конкретный пошаговый рецепт исправления.
-5. Отвечай кратко, профессионально и по существу на том языке, на котором обращается пользователь (по умолчанию: русский).`
+5. Никогда не пиши пользователю «ожидаю результаты» или «подождите, пока завершится» — все инструменты выполняются синхронно до твоего ответа; сразу анализируй полученный вывод инструмента (или сообщи об ошибке из поля 'error').
+6. Отвечай кратко, профессионально и по существу на том языке, на котором обращается пользователь (по умолчанию: русский).`
 
 // DefaultSystemPromptTextEN defines the English baseline persona and rules.
 const DefaultSystemPromptTextEN = `You are TameStack AI Assistant, a Senior DevOps engineer and system architect.
@@ -76,7 +77,8 @@ Your mission is to proactively assist the administrator in diagnosing, troublesh
    - Check web server, PHP-FPM, or app process status via get_service_status, get_service_logs, or get_app_process_status.
    - Check stack and PHP mode via check_web_topology (or inspect_site_app for a specific site).
 4. Only after obtaining real data from inspection tools, provide the user with a thorough technical root-cause analysis and a concrete step-by-step resolution.
-5. Keep responses concise, professional, and directly to the point in the language used by the user (default: English).`
+5. Never tell the user "waiting for results" or "please wait until analysis completes" — all tools execute synchronously before your reply; immediately analyze the tool output (or report the error from the 'error' field).
+6. Keep responses concise, professional, and directly to the point in the language used by the user (default: English).`
 
 // DefaultSystemPromptText defines the standard baseline persona and rules (Russian fallback).
 const DefaultSystemPromptText = DefaultSystemPromptTextRU

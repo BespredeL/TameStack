@@ -24,6 +24,7 @@ import { TaskRecord, ServerRecord } from '../types';
 import { CancelTask } from '../../wailsjs/go/main/App';
 import { useTranslation } from '../i18n/LanguageContext';
 import { useConfirm } from '../context/ConfirmContext';
+import { usePrivacy } from '../context/PrivacyContext';
 import { localizeTaskTitle, localizeTaskStep } from '../utils/taskI18n';
 
 interface TasksViewProps {
@@ -43,6 +44,7 @@ export const TasksView: React.FC<TasksViewProps> = ({
 }) => {
   const { t } = useTranslation();
   const confirm = useConfirm();
+  const { maskServerName, maskText } = usePrivacy();
   const [filter, setFilter] = useState<'all' | 'running' | 'completed' | 'failed' | 'cancelled'>('all');
   const [search, setSearch] = useState('');
 
@@ -148,7 +150,7 @@ export const TasksView: React.FC<TasksViewProps> = ({
               />
             ) : (
               filtered.map((tRec) => {
-                const srvName = tRec.server_id ? serverNameMap.get(tRec.server_id) || tRec.server_id : t('tasks.systemGlobal');
+                const srvName = tRec.server_id ? maskServerName(serverNameMap.get(tRec.server_id) || tRec.server_id) : t('tasks.systemGlobal');
                 const badgeVariant =
                   tRec.status === 'completed'
                     ? 'success'
@@ -176,7 +178,7 @@ export const TasksView: React.FC<TasksViewProps> = ({
                     </TableCell>
 
                     <TableCell>
-                      <div className="font-semibold text-white text-xs">{localizeTaskTitle(tRec, t)}</div>
+                      <div className="font-semibold text-white text-xs">{maskText(localizeTaskTitle(tRec, t))}</div>
                       <div className="font-mono text-[10px] text-slate-400">{tRec.operation_type}</div>
                     </TableCell>
 
@@ -187,7 +189,7 @@ export const TasksView: React.FC<TasksViewProps> = ({
                     <TableCell className="min-w-[180px]">
                       <div className="flex justify-between text-[11px] mb-1">
                         <span className="text-slate-400 truncate max-w-[140px]">
-                          {localizeTaskStep(tRec.current_step, t) || t('tasks.processing')}
+                          {maskText(localizeTaskStep(tRec.current_step, t) || t('tasks.processing'))}
                         </span>
                         <span className="font-mono text-indigo-400 font-bold">{tRec.progress}%</span>
                       </div>

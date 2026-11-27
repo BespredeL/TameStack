@@ -29,6 +29,7 @@ import {
 import { EventsOn } from '../../wailsjs/runtime/runtime';
 import { Badge, Button, Input, PageToolbar, EmptyState } from '../components/ui';
 import { ModalShell } from '../components/common/ModalShell';
+import { usePrivacy } from '../context/PrivacyContext';
 
 interface SystemUserItem {
   username: string;
@@ -62,6 +63,7 @@ export const UsersView: React.FC<UsersViewProps> = ({
   const { selectedServerId, setSelectedServerId } = useServer();
   const { t } = useTranslation();
   const confirm = useConfirm();
+  const { maskUser, maskPath, maskText } = usePrivacy();
 
   const [users, setUsers] = useState<SystemUserItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -307,15 +309,15 @@ export const UsersView: React.FC<UsersViewProps> = ({
             <tbody className="divide-y divide-slate-800/70">
               {filteredUsers.map((u) => (
                 <tr key={u.username} className="hover:bg-slate-800/30">
-                  <td className="px-4 py-3 font-medium text-slate-100">{u.username}</td>
+                  <td className="px-4 py-3 font-medium text-slate-100">{maskUser(u.username)}</td>
                   <td className="px-4 py-3 font-mono text-slate-400">{u.uid}:{u.gid}</td>
-                  <td className="px-4 py-3 font-mono text-slate-300">{u.home_dir}</td>
+                  <td className="px-4 py-3 font-mono text-slate-300">{maskPath(u.home_dir)}</td>
                   <td className="px-4 py-3 font-mono text-slate-400">{u.shell}</td>
                   <td className="px-4 py-3">
                     {u.sftp_chroot ? (
                       <Badge variant="success" size="sm" className="inline-flex items-center gap-1">
                         <CheckCircle2 className="w-3 h-3" />
-                        SFTP Chroot ({u.chroot_dir})
+                        SFTP Chroot ({maskPath(u.chroot_dir || '')})
                       </Badge>
                     ) : (
                       <Badge variant="neutral" size="sm">
@@ -423,7 +425,7 @@ export const UsersView: React.FC<UsersViewProps> = ({
       {chrootUser && (
         <ModalShell
           onClose={() => setChrootUser(null)}
-          title={t('users.chrootModalTitle', { username: chrootUser.username })}
+          title={t('users.chrootModalTitle', { username: maskUser(chrootUser.username) })}
           icon={<Shield className="w-5 h-5 text-emerald-400" />}
         >
           <form onSubmit={handleEnableChroot}>
@@ -451,7 +453,7 @@ export const UsersView: React.FC<UsersViewProps> = ({
       {passUser && (
         <ModalShell
           onClose={() => setPassUser(null)}
-          title={t('users.passModalTitle', { username: passUser })}
+          title={t('users.passModalTitle', { username: maskUser(passUser) })}
           icon={<Lock className="w-5 h-5 text-cyan-400" />}
         >
           <form onSubmit={handleSetPassword}>
@@ -472,7 +474,7 @@ export const UsersView: React.FC<UsersViewProps> = ({
       {keysUser && (
         <ModalShell
           onClose={() => setKeysUser(null)}
-          title={t('users.keysModalTitle', { username: keysUser })}
+          title={t('users.keysModalTitle', { username: maskUser(keysUser) })}
           icon={<Key className="w-5 h-5 text-indigo-400" />}
         >
           <form onSubmit={handleAddKey}>
@@ -483,7 +485,7 @@ export const UsersView: React.FC<UsersViewProps> = ({
                 ) : (
                   userKeys.map((k, idx) => (
                     <div key={idx} className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-[11px] font-mono text-slate-300 break-all">
-                      <span className="text-indigo-400">{k.key_type}</span> {k.key_data.slice(0, 32)}... {k.comment}
+                      <span className="text-indigo-400">{k.key_type}</span> {k.key_data.slice(0, 32)}... {maskText(k.comment)}
                     </div>
                   ))
                 )}
@@ -504,7 +506,7 @@ export const UsersView: React.FC<UsersViewProps> = ({
       {chownUser && (
         <ModalShell
           onClose={() => setChownUser(null)}
-          title={t('users.chownModalTitle', { username: chownUser })}
+          title={t('users.chownModalTitle', { username: maskUser(chownUser) })}
           icon={<FolderCog className="w-5 h-5" />}
         >
           <form onSubmit={handleChown}>

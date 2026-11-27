@@ -4,6 +4,7 @@ import { getErrorMessage } from '../utils/errors';
 import { RefreshCw, Copy, Check } from 'lucide-react';
 import { db } from '../../wailsjs/go/models';
 import { useTranslation } from '../i18n/LanguageContext';
+import { usePrivacy } from '../context/PrivacyContext';
 import { Button, Select } from './ui';
 import { GetSiteLogs } from '../../wailsjs/go/main/App';
 import { highlightCode } from '../utils/prismSetup';
@@ -14,6 +15,7 @@ interface SiteLogsTabProps {
 
 export const SiteLogsTab: React.FC<SiteLogsTabProps> = ({ site }) => {
   const { t } = useTranslation();
+  const { maskDomain, maskText } = usePrivacy();
   const siteWebServer = (site.web_server || 'nginx').toLowerCase();
   const defaultEngine = siteWebServer.includes('apache') && !siteWebServer.includes('nginx') ? 'apache' : 'nginx';
   const [logType, setLogType] = useState<'access' | 'error'>('error');
@@ -125,7 +127,7 @@ export const SiteLogsTab: React.FC<SiteLogsTabProps> = ({ site }) => {
       <div className="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden shadow-inner">
         <div className="px-3 py-1.5 bg-slate-900/70 border-b border-slate-800 flex items-center justify-between text-xs text-slate-400">
           <span className="font-mono text-[11px] text-slate-400">
-            {site.domain} • {logType === 'error' ? 'error.log' : 'access.log'} ({logLines} lines)
+            {maskDomain(site.domain)} • {logType === 'error' ? 'error.log' : 'access.log'} ({logLines} lines)
           </span>
           <Button
             size="sm"
@@ -142,7 +144,7 @@ export const SiteLogsTab: React.FC<SiteLogsTabProps> = ({ site }) => {
           <pre className="prism-tamestack m-0 p-0 bg-transparent">
             <code
               className="language-log"
-              dangerouslySetInnerHTML={{ __html: highlightCode(logsOutput, 'log') }}
+              dangerouslySetInnerHTML={{ __html: highlightCode(maskText(logsOutput), 'log') }}
             />
           </pre>
         </div>

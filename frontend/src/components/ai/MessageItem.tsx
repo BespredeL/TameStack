@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { AIMessageRecord } from '../../types';
 import { Bot, User, Wrench, Check, Copy, ChevronDown, ChevronRight, Terminal, ShieldAlert, X } from 'lucide-react';
 import { useTranslation } from '../../i18n/LanguageContext';
+import { usePrivacy } from '../../context/PrivacyContext';
 import { AIApproveTask, AIRejectTask } from '../../../wailsjs/go/main/App';
 import { DiagnosticReportCard } from './DiagnosticReportCard';
 
@@ -19,6 +20,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
   toolName,
 }) => {
   const { t } = useTranslation();
+  const { maskText } = usePrivacy();
   const [copiedCodeIndex, setCopiedCodeIndex] = useState<number | null>(null);
   const [isCopiedMessage, setIsCopiedMessage] = useState(false);
   const [isToolOpen, setIsToolOpen] = useState(false);
@@ -77,7 +79,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
       if (typeof data === 'string') {
         return (
           <pre className="p-3 rounded-lg bg-slate-950 border border-slate-800 font-mono text-[11px] text-slate-300 whitespace-pre-wrap overflow-x-auto leading-relaxed select-text">
-            {data}
+            {maskText(data)}
           </pre>
         );
       }
@@ -89,11 +91,11 @@ export const MessageItem: React.FC<MessageItemProps> = ({
             <div className="space-y-2">
               {data.server_id && (
                 <div className="text-[10px] text-slate-400 font-mono">
-                  Server ID: <span className="text-slate-300 font-medium">{data.server_id}</span>
+                  Server ID: <span className="text-slate-300 font-medium">{maskText(String(data.server_id))}</span>
                 </div>
               )}
               <pre className="p-3 rounded-lg bg-slate-950 border border-slate-800 font-mono text-[11px] text-emerald-300 whitespace-pre overflow-x-auto leading-relaxed select-text">
-                {data.ports_raw}
+                {maskText(String(data.ports_raw))}
               </pre>
             </div>
           );
@@ -104,7 +106,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
           const text = data.output || data.stdout;
           return (
             <pre className="p-3 rounded-lg bg-slate-950 border border-slate-800 font-mono text-[11px] text-emerald-300 whitespace-pre-wrap overflow-x-auto leading-relaxed select-text">
-              {typeof text === 'string' ? text : JSON.stringify(text, null, 2)}
+              {maskText(typeof text === 'string' ? text : JSON.stringify(text, null, 2))}
             </pre>
           );
         }
@@ -112,14 +114,14 @@ export const MessageItem: React.FC<MessageItemProps> = ({
         // Generic structured JSON
         return (
           <pre className="p-3 rounded-lg bg-slate-950 border border-slate-800 font-mono text-[11px] text-slate-300 whitespace-pre overflow-x-auto leading-relaxed select-text">
-            {JSON.stringify(data, null, 2)}
+            {maskText(JSON.stringify(data, null, 2))}
           </pre>
         );
       }
 
       return (
         <pre className="p-3 rounded-lg bg-slate-950 border border-slate-800 font-mono text-[11px] text-slate-300 whitespace-pre-wrap overflow-x-auto leading-relaxed select-text">
-          {String(data)}
+          {maskText(String(data))}
         </pre>
       );
     };
@@ -563,7 +565,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
           </div>
 
           <div className="text-xs space-y-2 select-text cursor-text">
-            {renderFormattedContent(message.content)}
+            {renderFormattedContent(maskText(message.content))}
             {isStreaming && (
               <span className="inline-block w-2 h-3.5 bg-indigo-400 animate-pulse ml-0.5 align-middle rounded-sm select-none" />
             )}

@@ -6,6 +6,7 @@ import { db } from '../../wailsjs/go/models';
 import { useTranslation } from '../i18n/LanguageContext';
 import { useAlert } from '../context/AlertContext';
 import { useConfirm } from '../context/ConfirmContext';
+import { usePrivacy } from '../context/PrivacyContext';
 import { Button, Input } from './ui';
 import { IssueSSLCertificate } from '../../wailsjs/go/main/App';
 
@@ -20,6 +21,7 @@ export const SiteSSLTab: React.FC<SiteSSLTabProps> = ({ site, serverID, onClose,
   const { t } = useTranslation();
   const alert = useAlert();
   const confirm = useConfirm();
+  const { isPrivacyMode, maskDomain } = usePrivacy();
   const [isIssuingSSL, setIsIssuingSSL] = useState(false);
   const [sslEmail, setSslEmail] = useState('admin@' + site.domain);
 
@@ -83,8 +85,9 @@ export const SiteSSLTab: React.FC<SiteSSLTabProps> = ({ site, serverID, onClose,
               </label>
               <Input
                 type="email"
-                value={sslEmail}
+                value={isPrivacyMode ? `admin@${maskDomain(site.domain)}` : sslEmail}
                 onChange={(e) => setSslEmail(e.target.value)}
+                readOnly={isPrivacyMode}
                 placeholder="admin@domain.com"
                 className="font-mono"
               />

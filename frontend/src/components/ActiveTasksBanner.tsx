@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Loader2, Terminal, ChevronDown, ChevronUp, Layers } from 'lucide-react';
 import { TaskRecord } from '../types';
 import { useTranslation } from '../i18n/LanguageContext';
+import { usePrivacy } from '../context/PrivacyContext';
 import { localizeTaskTitle, localizeTaskStep } from '../utils/taskI18n';
 
 interface ActiveTasksBannerProps {
@@ -11,14 +12,15 @@ interface ActiveTasksBannerProps {
 
 export const ActiveTasksBanner: React.FC<ActiveTasksBannerProps> = ({ tasks, onOpenTask }) => {
   const { t } = useTranslation();
+  const { maskText } = usePrivacy();
   const [isMinimized, setIsMinimized] = useState(false);
 
   if (!tasks || tasks.length === 0) return null;
 
   const currentTask = tasks[0];
   const count = tasks.length;
-  const localizedTitle = localizeTaskTitle(currentTask, t);
-  const localizedStep = localizeTaskStep(currentTask.current_step, t);
+  const localizedTitle = maskText(localizeTaskTitle(currentTask, t));
+  const localizedStep = maskText(localizeTaskStep(currentTask.current_step, t));
 
   return (
     <div

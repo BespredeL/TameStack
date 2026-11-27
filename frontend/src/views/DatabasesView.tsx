@@ -44,6 +44,7 @@ import { useTranslation } from '../i18n/LanguageContext';
 import { useAlert } from '../context/AlertContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { useServer } from '../context/ServerContext';
+import { usePrivacy } from '../context/PrivacyContext';
 
 interface DatabasesViewProps {
   servers: ServerRecord[];
@@ -259,6 +260,7 @@ export const DatabasesView: React.FC<DatabasesViewProps> = ({
   }
 
   const selectedServer = servers.find((s) => s.id === selectedServerID);
+  const { maskDatabase, maskUser, maskHost } = usePrivacy();
   const selectedInstance = instances.find((i) => i.engine === selectedEngine);
   const filteredDatabases = databasesList.filter((d) =>
     d.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -608,7 +610,7 @@ export const DatabasesView: React.FC<DatabasesViewProps> = ({
                           <tr key={db.name} className="hover:bg-slate-850/40 transition-colors">
                             <td className="px-6 py-4 font-mono font-medium text-white flex items-center gap-2">
                               <Database className="w-4 h-4 text-indigo-400" />
-                              {db.name}
+                              {isSystemDB ? db.name : maskDatabase(db.name)}
                               {isSystemDB && (
                                 <span className="px-1.5 py-0.5 rounded text-[10px] bg-slate-800 text-slate-400 font-sans">
                                   {t('databases.isSystem')}
@@ -695,7 +697,7 @@ export const DatabasesView: React.FC<DatabasesViewProps> = ({
                         <tr key={`${user.username}-${idx}`} className="hover:bg-slate-850/40 transition-colors">
                           <td className="px-6 py-4 font-mono font-medium text-white flex items-center gap-2">
                             <Users className="w-4 h-4 text-indigo-400" />
-                            {user.username}
+                            {isSystemUser(user.username) ? user.username : maskUser(user.username)}
                             {isSystemUser(user.username) && (
                               <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-sans">
                                 {t('databases.isSystemUser')}
@@ -703,7 +705,7 @@ export const DatabasesView: React.FC<DatabasesViewProps> = ({
                             )}
                           </td>
                           <td className="px-6 py-4 text-slate-400 font-mono">
-                            {user.host}
+                            {['localhost', '127.0.0.1', '%', '::1'].includes(user.host) ? user.host : maskHost(user.host)}
                           </td>
                           <td className="px-6 py-4 font-mono uppercase text-indigo-400">
                             {user.engine}

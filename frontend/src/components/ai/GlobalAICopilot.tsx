@@ -22,6 +22,7 @@ import { Badge, Button } from '../ui';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { useTranslation } from '../../i18n/LanguageContext';
 import { useServer } from '../../context/ServerContext';
+import { usePrivacy } from '../../context/PrivacyContext';
 import { getErrorMessage } from '../../utils/errors';
 import {
   AIApproveTask,
@@ -117,6 +118,7 @@ const CopilotToolResult: React.FC<{
   onApprovalComplete?: () => void;
 }> = ({ message, toolName, onApprovalComplete }) => {
   const { t } = useTranslation();
+  const { maskText } = usePrivacy();
   const [isOpen, setIsOpen] = useState(false);
   const [approvalStatus, setApprovalStatus] = useState<'pending' | 'approved' | 'rejected'>('pending');
 
@@ -209,7 +211,7 @@ const CopilotToolResult: React.FC<{
         </button>
         {isOpen && (
           <pre className="border-t border-slate-800/80 p-2.5 bg-slate-950/90 font-mono text-[10px] text-slate-300 whitespace-pre-wrap overflow-x-auto max-h-56 overflow-y-auto leading-relaxed select-text">
-            {formattedBody}
+            {maskText(formattedBody)}
           </pre>
         )}
       </div>
@@ -225,6 +227,7 @@ export const GlobalAICopilot: React.FC<GlobalAICopilotProps> = ({
 }) => {
   const { t, language } = useTranslation();
   const { selectedServer, selectedServerId } = useServer();
+  const { maskServerName, maskText } = usePrivacy();
 
   const [convId, setConvId] = useState<string | null>(null);
   const [messages, setMessages] = useState<AIMessageRecord[]>([]);
@@ -585,7 +588,7 @@ export const GlobalAICopilot: React.FC<GlobalAICopilotProps> = ({
           {selectedServer && (
             <Badge variant="neutral" size="sm" className="inline-flex items-center gap-1 font-mono">
               <Server className="w-3 h-3 text-emerald-400" />
-              {selectedServer.name}
+              {maskServerName(selectedServer.name)}
             </Badge>
           )}
         </div>
@@ -706,9 +709,9 @@ export const GlobalAICopilot: React.FC<GlobalAICopilotProps> = ({
                 }`}
               >
                 {m.role === 'user' ? (
-                  <span className="whitespace-pre-wrap">{m.content}</span>
+                  <span className="whitespace-pre-wrap">{maskText(m.content)}</span>
                 ) : (
-                  <CopilotAssistantContent content={m.content} reasoningLabel={t('ai.copilot.reasoning')} />
+                  <CopilotAssistantContent content={maskText(m.content)} reasoningLabel={t('ai.copilot.reasoning')} />
                 )}
               </div>
               {m.role === 'user' && (
@@ -726,7 +729,7 @@ export const GlobalAICopilot: React.FC<GlobalAICopilotProps> = ({
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
             </div>
             <div className="max-w-[85%] rounded-xl px-3 py-2 bg-slate-900 border border-slate-800 text-slate-200 leading-relaxed">
-              <CopilotAssistantContent content={streamingContent} reasoningLabel={t('ai.copilot.reasoning')} />
+              <CopilotAssistantContent content={maskText(streamingContent)} reasoningLabel={t('ai.copilot.reasoning')} />
             </div>
           </div>
         )}

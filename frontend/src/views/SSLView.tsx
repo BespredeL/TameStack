@@ -35,6 +35,7 @@ import { LoadingState } from '../components/LoadingState';
 import { useTranslation } from '../i18n/LanguageContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { useServer } from '../context/ServerContext';
+import { usePrivacy } from '../context/PrivacyContext';
 
 interface SSLViewProps {
   servers: ServerRecord[];
@@ -54,6 +55,7 @@ export const SSLView: React.FC<SSLViewProps> = ({
   } = useServer();
   const { t } = useTranslation();
   const confirm = useConfirm();
+  const { maskDomain, maskServerName, maskText } = usePrivacy();
   const [certs, setCerts] = useState<db.SSLCertificateRecord[]>([]);
   const [metrics, setMetrics] = useState<ssl.SSLMetrics | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -337,7 +339,7 @@ export const SSLView: React.FC<SSLViewProps> = ({
         <LoadingState
           type="table"
           title={t('ssl.loadingTitle')}
-          subtitle={t('ssl.loadingSubtitle', { server: selectedServer?.name || '' })}
+          subtitle={t('ssl.loadingSubtitle', { server: maskServerName(selectedServer?.name || '') })}
         />
       ) : (
         <div className="bg-surface-850 border border-slate-800 rounded-2xl shadow-lg overflow-hidden">
@@ -388,10 +390,10 @@ export const SSLView: React.FC<SSLViewProps> = ({
                   return (
                     <tr key={c.id} className="hover:bg-slate-800/40 transition-colors">
                       <td className="py-3.5 px-4 font-sans">
-                        <div className="font-bold text-white text-sm font-mono">{c.primary_domain}</div>
+                        <div className="font-bold text-white text-sm font-mono">{maskDomain(c.primary_domain)}</div>
                         {c.san_domains && c.san_domains.length > 0 && (
                           <div className="text-[11px] text-slate-400 font-mono mt-0.5">
-                            SANs: {c.san_domains.join(', ')}
+                            SANs: {c.san_domains.map(maskDomain).join(', ')}
                           </div>
                         )}
                       </td>
@@ -399,9 +401,9 @@ export const SSLView: React.FC<SSLViewProps> = ({
                       <td className="py-3.5 px-4 max-w-[220px] font-sans">
                         <span
                           className="inline-block max-w-[200px] truncate whitespace-nowrap px-2.5 py-0.5 rounded-lg bg-slate-800 text-slate-300 border border-slate-700 text-[11px] font-medium align-middle"
-                          title={c.issuer}
+                          title={maskText(c.issuer)}
                         >
-                          {formatIssuer(c.issuer)}
+                          {maskText(formatIssuer(c.issuer))}
                         </span>
                       </td>
 

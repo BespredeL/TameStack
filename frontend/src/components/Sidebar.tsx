@@ -33,6 +33,7 @@ import {
 import { NavigationTab } from '../types';
 import { useTranslation } from '../i18n/LanguageContext';
 import { useServer } from '../context/ServerContext';
+import { usePrivacy } from '../context/PrivacyContext';
 import { Select } from './ui';
 import { GetAppSettings } from '../../wailsjs/go/main/App';
 import { BrowserOpenURL } from '../../wailsjs/runtime/runtime';
@@ -73,6 +74,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const { t } = useTranslation();
   const { selectedServerId, setSelectedServerId, selectedServer, servers } = useServer();
+  const { maskServerName, maskHost } = usePrivacy();
   const [appVersion, setAppVersion] = useState<string | null>(null);
   const [isCompact, setIsCompact] = useState<boolean>(() => {
     try {
@@ -281,12 +283,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
               sizeVariant="sm"
               value={selectedServerId}
               onChange={(e) => setSelectedServerId(e.target.value)}
-              title={selectedServer ? `${selectedServer.name} (${selectedServer.host})` : ''}
+              title={selectedServer ? `${maskServerName(selectedServer.name)} (${maskHost(selectedServer.host)})` : ''}
               className="font-medium"
             >
               {servers.map((s) => (
                 <option key={s.id} value={s.id} className="bg-slate-900 text-slate-200">
-                  {s.name} ({s.host})
+                  {maskServerName(s.name)} ({maskHost(s.host)})
                 </option>
               ))}
             </Select>

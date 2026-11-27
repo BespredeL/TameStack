@@ -1,6 +1,7 @@
 import React from 'react';
 import { ServerRecord } from '../../types';
 import { ChevronDown } from 'lucide-react';
+import { usePrivacy } from '../../context/PrivacyContext';
 
 export interface PageToolbarProps {
   icon?: React.ReactNode;
@@ -31,6 +32,7 @@ export const PageToolbar: React.FC<PageToolbarProps> = ({
   actions,
   className = '',
 }) => {
+  const { maskServerName, maskHost } = usePrivacy();
   return (
     <div
       className={`flex flex-col gap-3.5 xl:flex-row xl:items-center xl:justify-between bg-surface-850 p-4 rounded-2xl border border-slate-800 shadow-sm ${className}`}
@@ -54,7 +56,7 @@ export const PageToolbar: React.FC<PageToolbarProps> = ({
               >
                 {servers.map((s) => (
                   <option key={s.id} value={s.id} className="bg-slate-900 text-white">
-                    {s.name} ({s.host})
+                    {maskServerName(s.name)} ({maskHost(s.host)})
                   </option>
                 ))}
               </select>

@@ -1,8 +1,9 @@
 import React from 'react';
-import { Plus, RefreshCw, Search, Lock, Unlock, Menu, Loader2, Sparkles } from 'lucide-react';
+import { Plus, RefreshCw, Lock, Unlock, Menu, Loader2, Sparkles, Eye, EyeOff } from 'lucide-react';
 import { NavigationTab } from '../types';
 import { useTranslation } from '../i18n/LanguageContext';
 import { useServer } from '../context/ServerContext';
+import { usePrivacy } from '../context/PrivacyContext';
 import { Button } from './ui';
 import { main } from '../../wailsjs/go/models';
 
@@ -37,6 +38,7 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const { t, language, setLanguage } = useTranslation();
   const { isPageLoading, pageLoadingMessage } = useServer();
+  const { isPrivacyMode, togglePrivacyMode } = usePrivacy();
 
   const title = t(`titles.${currentTab}.title`);
   const subtitle = t(`titles.${currentTab}.subtitle`);
@@ -71,21 +73,22 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-        {/* Quick Search / Command Palette (Ctrl+K) */}
-        {onOpenCommandPalette && (
-          <button
-            onClick={onOpenCommandPalette}
-            className="h-8 flex items-center gap-2 px-3 rounded-lg bg-surface-900 border border-slate-700/80 text-slate-400 hover:text-slate-200 hover:border-slate-600 active:scale-[0.97] transition-all duration-100 ease-out text-xs shadow-xs cursor-pointer shrink-0"
-            title={t('header.commandPaletteTooltip')}
-            aria-label={t('header.commandPaletteTooltip')}
-          >
-            <Search className="w-3.5 h-3.5 text-indigo-400" />
-            <span className="hidden lg:inline">{t('header.searchPlaceholder')}</span>
-            <kbd className="hidden xl:inline px-1.5 py-0.5 text-[10px] font-mono font-semibold bg-slate-800 text-slate-400 border border-slate-700 rounded">
-              Ctrl+K
-            </kbd>
-          </button>
-        )}
+        {/* Privacy / Masking Mode Toggle */}
+        <button
+          type="button"
+          onClick={togglePrivacyMode}
+          className={`h-8 flex items-center gap-1.5 px-2.5 rounded-lg border text-xs font-medium active:scale-[0.97] transition-all duration-100 ease-out shadow-xs cursor-pointer shrink-0 ${
+            isPrivacyMode
+              ? 'bg-amber-500/15 border-amber-500/40 text-amber-300 hover:bg-amber-500/25'
+              : 'bg-surface-900 border-slate-700/80 text-slate-400 hover:text-slate-200 hover:border-slate-600'
+          }`}
+          title={isPrivacyMode ? t('header.privacyModeDisable') : t('header.privacyModeEnable')}
+          aria-label={isPrivacyMode ? t('header.privacyModeDisable') : t('header.privacyModeEnable')}
+          aria-pressed={isPrivacyMode}
+        >
+          {isPrivacyMode ? <EyeOff className="w-3.5 h-3.5 text-amber-400" /> : <Eye className="w-3.5 h-3.5" />}
+          {isPrivacyMode && <span className="hidden md:inline">{t('header.privacyModeBadge')}</span>}
+        </button>
 
         {/* Global AI Copilot (Ctrl+I) */}
         {onOpenAICopilot && (

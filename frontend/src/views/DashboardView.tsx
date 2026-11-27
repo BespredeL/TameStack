@@ -47,6 +47,7 @@ import {
 import { useTranslation } from '../i18n/LanguageContext';
 import { localizeTaskTitle, localizeTaskStep } from '../utils/taskI18n';
 import { useServer } from '../context/ServerContext';
+import { usePrivacy } from '../context/PrivacyContext';
 
 interface DashboardViewProps {
   stats: DashboardStats | null;
@@ -73,6 +74,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 }) => {
   const { t } = useTranslation();
   const { selectedServerId, setSelectedServerId, selectedServer } = useServer();
+  const { maskServerName, maskHost } = usePrivacy();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'online' | 'offline'>('all');
@@ -419,9 +421,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
 
                 <div className="flex flex-wrap items-baseline gap-2.5">
-                  <h2 className="text-lg font-bold text-white tracking-tight truncate">{selectedServer.name}</h2>
+                  <h2 className="text-lg font-bold text-white tracking-tight truncate">{maskServerName(selectedServer.name)}</h2>
                   <div className="flex items-center gap-1 font-mono text-xs text-slate-400 bg-slate-900/80 px-2 py-0.5 rounded border border-slate-800">
-                    <span>{selectedServer.host}:{selectedServer.port}</span>
+                    <span>{maskHost(selectedServer.host)}:{selectedServer.port}</span>
                     <button
                       onClick={(e) => handleCopy(`${selectedServer.host}:${selectedServer.port}`, 'spotlight-host', e)}
                       className="text-slate-500 hover:text-slate-300 transition-colors ml-0.5"
@@ -449,7 +451,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               >
                 {servers.map((s) => (
                   <option key={s.id} value={s.id}>
-                    {s.name} ({s.host})
+                    {maskServerName(s.name)} ({maskHost(s.host)})
                   </option>
                 ))}
               </Select>
@@ -708,7 +710,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                               />
                               <div className="min-w-0">
                                 <div className="truncate font-sans max-w-[140px] text-slate-100 flex items-center gap-1.5">
-                                  <span>{s.name}</span>
+                                  <span>{maskServerName(s.name)}</span>
                                   {isTarget && (
                                     <Badge variant="indigo" size="xs">
                                       Фокус
@@ -736,7 +738,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
                           <TableCell className="font-mono text-slate-300">
                             <div className="flex items-center gap-1">
-                              <span>{s.host}:{s.port}</span>
+                              <span>{maskHost(s.host)}:{s.port}</span>
                               <button
                                 onClick={(e) => handleCopy(`${s.host}:${s.port}`, `table-${s.id}`, e)}
                                 className="text-slate-500 hover:text-slate-300 transition-colors ml-0.5 p-0.5 rounded"

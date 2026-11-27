@@ -422,7 +422,17 @@ func (s *Service) StreamMessageWithContext(
 			res, execErr := s.tools.Execute(ctx, convID, currentAssistantMsg.ID, tc.Function.Name, argsJSON)
 			outContent := ""
 			if execErr != nil {
-				outContent = fmt.Sprintf(`{"error": "%s"}`, execErr.Error())
+				errPayload, _ := json.Marshal(map[string]string{"error": execErr.Error()})
+				outContent = string(errPayload)
+			} else if res == nil || !res.Success {
+				errText := "tool execution failed"
+				if res != nil && res.Error != "" {
+					errText = res.Error
+				}
+				errPayload, _ := json.Marshal(map[string]string{"error": errText})
+				outContent = string(errPayload)
+			} else if res.RawOutput == "" {
+				outContent = "{}"
 			} else {
 				outContent = res.RawOutput
 			}

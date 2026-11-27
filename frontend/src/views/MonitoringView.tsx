@@ -25,6 +25,7 @@ import { LoadingState } from '../components/LoadingState';
 import { PageToolbar, Button, Input } from '../components/ui';
 import { useTranslation } from '../i18n/LanguageContext';
 import { useServer } from '../context/ServerContext';
+import { usePrivacy } from '../context/PrivacyContext';
 
 interface MonitoringViewProps {
   servers: ServerRecord[];
@@ -37,6 +38,7 @@ export const MonitoringView: React.FC<MonitoringViewProps> = ({
 }) => {
   const { selectedServerId, setSelectedServerId, setPageLoading } = useServer();
   const { t } = useTranslation();
+  const { maskDomain, registerDomains } = usePrivacy();
 
   // Realtime system metrics
   const [metrics, setMetrics] = useState<any>(null);
@@ -60,7 +62,11 @@ export const MonitoringView: React.FC<MonitoringViewProps> = ({
   useEffect(() => {
     if (!selectedServerId) return;
     ListSites(selectedServerId)
-      .then((sites) => setServerSites(sites || []))
+      .then((sites) => {
+        const list = sites || [];
+        setServerSites(list);
+        registerDomains(list.map((s: any) => s.domain).filter(Boolean));
+      })
       .catch((err) => console.error('Failed to list sites:', err));
   }, [selectedServerId]);
 
@@ -407,7 +413,7 @@ export const MonitoringView: React.FC<MonitoringViewProps> = ({
                       )}
                     </div>
                     <div>
-                      <h4 className="text-sm font-semibold text-slate-200 font-mono">{site.domain}</h4>
+                      <h4 className="text-sm font-semibold text-slate-200 font-mono">{maskDomain(site.domain)}</h4>
                       <p className="text-xs text-slate-400 mt-0.5">
                         {check ? (
                           <>

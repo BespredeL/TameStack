@@ -37,6 +37,7 @@ import { SiteRuntimeTab } from './SiteRuntimeTab';
 import { useTranslation } from '../i18n/LanguageContext';
 import { useAlert } from '../context/AlertContext';
 import { useConfirm } from '../context/ConfirmContext';
+import { usePrivacy } from '../context/PrivacyContext';
 
 interface ManageSiteModalProps {
   isOpen: boolean;
@@ -93,6 +94,7 @@ export const ManageSiteModal: React.FC<ManageSiteModalProps> = ({
   const { t } = useTranslation();
   const alert = useAlert();
   const confirm = useConfirm();
+  const { isPrivacyMode, maskDomain, maskPath, maskText } = usePrivacy();
   const [currentSite, setCurrentSite] = useState<db.SiteRecord>(initialSite);
   const [activeTab, setActiveTab] = useState<TabType>('overview');
 
@@ -215,7 +217,7 @@ export const ManageSiteModal: React.FC<ManageSiteModalProps> = ({
       size="6xl"
       className="max-h-[90vh]"
       icon={<Globe className="w-5 h-5" />}
-      title={currentSite.domain}
+      title={maskDomain(currentSite.domain)}
       headerExtra={
         <span
           className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
@@ -340,7 +342,7 @@ export const ManageSiteModal: React.FC<ManageSiteModalProps> = ({
               <div className="flex items-center justify-between">
                 <div>
                   <span className="text-[11px] text-slate-400 block font-mono">
-                    {t('manageSite.pathLabel')} <span className="text-indigo-300 font-semibold">{configPath || t('manageSite.loading')}</span>
+                    {t('manageSite.pathLabel')} <span className="text-indigo-300 font-semibold">{configPath ? maskPath(configPath) : t('manageSite.loading')}</span>
                   </span>
                   <p className="text-[11px] text-slate-500 mt-0.5">
                     {t('manageSite.configGuardianNotice', { testCmd: webserverType === 'apache' ? 'apachectl configtest' : 'nginx -t' })}
@@ -369,7 +371,7 @@ export const ManageSiteModal: React.FC<ManageSiteModalProps> = ({
 
                   <button
                     onClick={handleSaveConfig}
-                    disabled={isSavingConfig || isLoadingConfig}
+                    disabled={isSavingConfig || isLoadingConfig || isPrivacyMode}
                     className="flex items-center gap-2 px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold shadow-md shadow-indigo-600/30 disabled:opacity-50"
                   >
                     {isSavingConfig ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
@@ -403,9 +405,10 @@ export const ManageSiteModal: React.FC<ManageSiteModalProps> = ({
 
               <div className="rounded-xl border border-slate-800 bg-slate-950 p-1">
                 <textarea
-                  value={configContent}
+                  value={isPrivacyMode ? maskText(configContent) : configContent}
                   onChange={(e) => setConfigContent(e.target.value)}
                   rows={18}
+                  readOnly={isPrivacyMode}
                   disabled={isLoadingConfig}
                   className="w-full bg-slate-950 text-slate-100 font-mono text-xs p-3 focus:outline-none resize-none selection:bg-indigo-500/30"
                   spellCheck={false}

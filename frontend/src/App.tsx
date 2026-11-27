@@ -35,6 +35,7 @@ import { DbUnlockScreen } from './components/DbUnlockScreen';
 import { ActiveTasksBanner } from './components/ActiveTasksBanner';
 import { NavigationTab, ServerRecord, TaskRecord } from './types';
 import { ServerProvider, useServer } from './context/ServerContext';
+import { PrivacyProvider } from './context/PrivacyContext';
 import { useAppData } from './hooks/useAppData';
 import { useVaultGate } from './hooks/useVaultGate';
 import { Server, ShieldAlert } from 'lucide-react';
@@ -395,7 +396,8 @@ export const App: React.FC = () => {
 
   return (
     <ServerProvider servers={servers}>
-      <div className="flex h-screen w-screen overflow-hidden bg-surface-900 text-slate-100 font-sans">
+      <PrivacyProvider>
+        <div className="flex h-screen w-screen overflow-hidden bg-surface-900 text-slate-100 font-sans">
         {/* Left Sidebar Navigation */}
         <Sidebar
           currentTab={currentTab}
@@ -517,7 +519,8 @@ export const App: React.FC = () => {
           currentTab={currentTab}
           onOpenFullAI={() => setCurrentTab('ai')}
         />
-      </div>
+        </div>
+      </PrivacyProvider>
     </ServerProvider>
   );
 };

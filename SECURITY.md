@@ -88,6 +88,7 @@ Before a configuration file is written, the path is resolved on the server with 
 - Enforcement is not left to the caller's classification: `Registry.Execute` refuses any tool whose definition requires approval, so a tool call crafted to bypass the loop is rejected before its handler runs. The release path is `Registry.ExecuteApproved`.
 - Every executed tool writes an audit row (`ai_tool_audit`): tool name, risk level, sanitized arguments, duration, success flag and whether a human approved the run. Refused calls are not recorded as executed.
 - Mutating tools (`prepare_config_diff`, `propose_service_restart`) never run inside the chat loop: it holds them back as approval-required. Changes are actually applied as Tasks Engine jobs (`SubmitRequiresApproval`) that the operator releases explicitly. The chat-side pending approval currently has no release path in the UI, so such changes stay blocked instead of running silently.
+- **Cloud AI Aliasing & UI Privacy Mode**: When interacting with cloud AI providers, sensitive infrastructure identifiers (server names, IP addresses, domains) are replaced with deterministic aliases before outbound requests and restored locally. Additionally, a global UI Privacy Mode masks sensitive identifiers across the desktop interface for safe screen-sharing.
 
 ---
 
@@ -125,7 +126,7 @@ An internal log filter (`LogScrubber`) intercepts all Task Engine events before 
    Only the single root-level executable entry is extracted from the release archive; entry names containing paths are ignored, so a malicious archive cannot write outside the update staging directory.
 4. **Atomic Binary Swap**:
    The running executable is renamed aside (Windows permits renaming loaded images), the verified binary is moved into place, and the old copy is restored automatically if the swap fails. Leftover old copies are deleted on the next application start.
-5. **No Silent Elevation**:
-   The updater writes only inside the application's own directory and never requests administrator rights; if the location is not writable, the update fails and manual installation remains available.
+5. **Explicit UAC Elevation Only When Required**:
+   The updater attempts to write inside the application's own directory first without elevation. On Windows, if the installation directory is protected (such as `Program Files`) and not writable by the current user, it triggers an explicit OS UAC prompt to apply the already SHA-256-verified binary — never silent elevation.
 6. **Restart Discipline**:
    Relaunch of the updated binary happens only after the shutdown sequence has sealed the encrypted database container and closed all handles, so two instances never contend for the database.

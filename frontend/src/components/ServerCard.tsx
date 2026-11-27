@@ -25,6 +25,7 @@ import { InventoryModal } from './InventoryModal';
 import { Badge, Button } from './ui';
 import { useTranslation } from '../i18n/LanguageContext';
 import { useConfirm } from '../context/ConfirmContext';
+import { usePrivacy } from '../context/PrivacyContext';
 
 interface ServerCardProps {
   server: ServerRecord;
@@ -43,6 +44,7 @@ export const ServerCard: React.FC<ServerCardProps> = ({
 }) => {
   const { t, language } = useTranslation();
   const confirm = useConfirm();
+  const { maskServerName, maskHost, maskUser } = usePrivacy();
   const [isTesting, setIsTesting] = useState(false);
   const [isDiagnosing, setIsDiagnosing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -205,15 +207,15 @@ export const ServerCard: React.FC<ServerCardProps> = ({
             <div className="min-w-0 flex-1">
               <h3
                 className="font-bold text-white text-base tracking-wide truncate group-hover:text-indigo-300 transition-colors leading-snug"
-                title={server.name}
+                title={maskServerName(server.name)}
               >
-                {server.name}
+                {maskServerName(server.name)}
               </h3>
               <div
                 className="text-xs text-slate-400 font-mono mt-0.5 truncate select-all"
-                title={`${server.username}@${server.host}:${server.port}`}
+                title={`${maskUser(server.username)}@${maskHost(server.host)}:${server.port}`}
               >
-                {server.username}@{server.host}:{server.port}
+                {maskUser(server.username)}@{maskHost(server.host)}:{server.port}
               </div>
             </div>
           </div>
