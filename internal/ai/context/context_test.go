@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"tamestack/internal/ai/domain"
 	"tamestack/internal/db"
 )
 
@@ -140,5 +141,23 @@ func TestContextBuilder(t *testing.T) {
 	}
 	if !strings.Contains(promptEN, "### Active Server: Web Alpha") {
 		t.Fatalf("expected English active server header, got: %s", promptEN)
+	}
+
+	// Verify dynamic tools rendering
+	promptWithTools, err := builder.BuildSystemPrompt(ctx, BuilderOptions{
+		ServerID:       &srvID,
+		LanguageLocale: "en",
+		AvailableTools: []domain.ToolDefinition{
+			{Name: "inspect_mail_server", Description: "Inspects mail stack", IsMutating: false},
+			{Name: "prepare_config_diff", Description: "Prepares config diff", IsMutating: true},
+		},
+	})
+	if err != nil {
+		t.Fatalf("failed to build prompt with tools: %v", err)
+	}
+	if !strings.Contains(promptWithTools, "### AVAILABLE TOOLS:") ||
+		!strings.Contains(promptWithTools, "`inspect_mail_server` [read-only]") ||
+		!strings.Contains(promptWithTools, "`prepare_config_diff` [requires approval]") {
+		t.Fatalf("expected dynamic tools section in prompt, got: %s", promptWithTools)
 	}
 }

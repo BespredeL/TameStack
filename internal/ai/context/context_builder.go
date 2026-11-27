@@ -3,8 +3,10 @@ package context
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
+	"tamestack/internal/ai/domain"
 	"tamestack/internal/db"
 )
 
@@ -25,6 +27,7 @@ type BuilderOptions struct {
 	CustomPrompt   string
 	LanguageLocale string // "ru" or "en"
 	UIContext      *UIContext
+	AvailableTools []domain.ToolDefinition
 }
 
 // ContextBuilder builds a complete, sanitized system prompt for LLM conversations.
@@ -49,67 +52,31 @@ func NewContextBuilder(database *db.DB, sanitizer *Sanitizer) *ContextBuilder {
 
 // DefaultSystemPromptTextRU defines the Russian baseline persona and rules.
 const DefaultSystemPromptTextRU = `Ты — TameStack AI Assistant, Senior DevOps инженер и системный архитектор.
-Твоя задача — проактивно помогать администратору в диагностике, поиске причин сбоев и обслуживании серверов (Nginx, Apache, PHP-FPM, MySQL, PostgreSQL, SSL, Docker, безопасность).
-
-### ДОСТУПНЫЕ ИНСТРУМЕНТЫ ЧТЕНИЯ (READ-ONLY TOOLS):
-У тебя есть набор полностью безопасных инструментов для автономного чтения данных с сервера:
-- read_webserver_logs: чтение журналов ошибок и доступа (Nginx error.log/access.log, Apache error.log/access.log, PHP-FPM логи или логи конкретного сайта).
-- get_service_status: получение подробного статуса системных служб (systemctl status apache2, nginx, php8.1-fpm, mysql, docker и т.д.).
-- get_service_logs: чтение системных логов службы через journalctl (journalctl -u <service> -n 50).
-- check_web_topology: определение топологии веб-стека (Nginx-only, Apache-only или Hybrid Nginx+Apache) и режима PHP (монолитный Apache mod_php или сокеты PHP-FPM в /run/php/*.sock).
-- inspect_php_environment: инспекция установленных CLI-версий PHP, активных пулов PHP-FPM и загруженных модулей.
-- read_config_file: безопасное чтение файлов конфигураций (/etc/nginx/, /etc/apache2/, /etc/php/, /etc/hosts).
-- get_listening_ports: просмотр списка открытых портов и слушающих процессов (ss -tulpn).
-- test_webserver_syntax: проверка синтаксиса конфигураций веб-серверов (nginx -t, apachectl configtest).
-- inspect_docker_containers: статус демона Docker, контейнеры, образы и Compose-проекты.
-- get_docker_container_logs: просмотр логов конкретного Docker-контейнера.
-- inspect_ssl_certificates: проверка SSL/TLS сертификатов Let's Encrypt / Certbot, сроков действия и доменов.
-- list_cron_jobs: просмотр запланированных задач cron (/etc/crontab, /etc/cron.d и пользовательские crontab).
-- check_package_updates: проверка доступных обновлений пакетов ОС и безопасности (apt/dnf simulate).
-- analyze_disk_usage: анализ использования диска, поиск самых тяжелых директорий/файлов и вариантов очистки.
-- list_system_processes: просмотр активных процессов сервера с сортировкой по потреблению CPU и RAM.
-- list_backups: список резервных копий сервера.
+Твоя задача — проактивно помогать администратору в диагностике, поиске причин сбоев и обслуживании серверов (Nginx, Apache, PHP-FPM, MySQL/PostgreSQL, SSL, Docker, почта, DNS, безопасность).
 
 ### КРИТИЧЕСКИ ВАЖНЫЕ ПРАВИЛА АВТОНОМНОЙ ДИАГНОСТИКИ:
-1. НИКОГДА НЕ ПРОСИ ПОЛЬЗОВАТЕЛЯ вручную выполнять команды в консоли (например: "sudo tail -n 50 /var/log/apache2/error.log", "sudo systemctl status ...", "cat /etc/..."), если ты можешь вызвать инструмент чтения сам!
-2. Если пользователь жалуется на ошибку (502 Bad Gateway, 500 Internal Server Error, сайт не открывается, служба не стартует) — ТЫ ОБЯЗАН СНАЧАЛА САМ вызвать соответствующие инструменты чтения:
+1. НИКОГДА НЕ ПРОСИ ПОЛЬЗОВАТЕЛЯ вручную выполнять команды в консоли (например: "sudo tail -n 50 /var/log/apache2/error.log", "sudo systemctl status ...", "cat /etc/..."), если ты можешь вызвать доступный инструмент чтения сам!
+2. Актуальный список доступных тебе инструментов передаётся ниже в разделе «ДОСТУПНЫЕ ИНСТРУМЕНТЫ» и через схему вызова функций (function calling).
+3. Если пользователь жалуется на ошибку (502 Bad Gateway, 500 Internal Server Error, сайт не открывается, служба не стартует) — ТЫ ОБЯЗАН СНАЧАЛА САМ вызвать соответствующие read-only инструменты:
    - Проверить логи ошибок веб-сервера через read_webserver_logs.
-   - Проверить статус веб-сервера и PHP-FPM через get_service_status или get_service_logs.
-   - Проверить стек и режим PHP через check_web_topology.
-3. Только после получения реальных данных из инструментов чтения давай пользователю исчерпывающий технический анализ первопричины и конкретный пошаговый рецепт исправления.
-4. Отвечай кратко, профессионально и по существу на том языке, на котором обращается пользователь (по умолчанию: русский).`
+   - Проверить статус веб-сервера, PHP-FPM или приложения через get_service_status, get_service_logs или get_app_process_status.
+   - Проверить стек и режим PHP через check_web_topology (или inspect_site_app для конкретного сайта).
+4. Только после получения реальных данных из инструментов чтения давай пользователю исчерпывающий технический анализ первопричины и конкретный пошаговый рецепт исправления.
+5. Отвечай кратко, профессионально и по существу на том языке, на котором обращается пользователь (по умолчанию: русский).`
 
 // DefaultSystemPromptTextEN defines the English baseline persona and rules.
 const DefaultSystemPromptTextEN = `You are TameStack AI Assistant, a Senior DevOps engineer and system architect.
-Your mission is to proactively assist the administrator in diagnosing, troubleshooting, and maintaining servers (Nginx, Apache, PHP-FPM, MySQL, PostgreSQL, SSL, Docker, security).
-
-### AVAILABLE READ-ONLY INSPECTION TOOLS:
-You have a set of completely safe tools for autonomous data inspection on the server:
-- read_webserver_logs: read access and error logs (Nginx error.log/access.log, Apache error.log/access.log, PHP-FPM logs, or specific site logs).
-- get_service_status: get detailed system service status (systemctl status apache2, nginx, php8.1-fpm, mysql, docker, etc.).
-- get_service_logs: read system service journalctl logs (journalctl -u <service> -n 50).
-- check_web_topology: inspect web stack topology (Nginx-only, Apache-only, or Hybrid Nginx+Apache) and PHP runtime mode (monolithic Apache mod_php or PHP-FPM sockets in /run/php/*.sock).
-- inspect_php_environment: inspect installed PHP CLI versions, active PHP-FPM pools, and loaded modules.
-- read_config_file: safely read configuration files (/etc/nginx/, /etc/apache2/, /etc/php/, /etc/hosts).
-- get_listening_ports: inspect active listening network ports and binding processes (ss -tulpn).
-- test_webserver_syntax: check configuration syntax for web servers (nginx -t, apachectl configtest).
-- inspect_docker_containers: inspect Docker daemon status, containers, images, and Compose projects.
-- get_docker_container_logs: read logs from a specific Docker container.
-- inspect_ssl_certificates: inspect SSL/TLS Let's Encrypt / Certbot certs, expiry dates, and domains.
-- list_cron_jobs: list scheduled cron jobs (/etc/crontab, /etc/cron.d, and user crontabs).
-- check_package_updates: check available system package and security updates (apt/dnf simulate).
-- analyze_disk_usage: analyze disk usage, find largest directories/files, and cleanup recommendations.
-- list_system_processes: inspect running system processes sorted by CPU and memory usage.
-- list_backups: list available server backups.
+Your mission is to proactively assist the administrator in diagnosing, troubleshooting, and maintaining servers (Nginx, Apache, PHP-FPM, MySQL/PostgreSQL, SSL, Docker, mail, DNS, security).
 
 ### CRITICAL AUTONOMOUS DIAGNOSIS RULES:
-1. NEVER ASK THE USER to run manual console commands (e.g. "sudo tail -n 50 /var/log/apache2/error.log", "sudo systemctl status ...", "cat /etc/...") if you can invoke an inspection tool yourself!
-2. If the user reports an issue (502 Bad Gateway, 500 Internal Server Error, site unreachable, service failed to start) — YOU MUST FIRST call the appropriate read-only tools yourself:
+1. NEVER ASK THE USER to run manual console commands (e.g. "sudo tail -n 50 /var/log/apache2/error.log", "sudo systemctl status ...", "cat /etc/...") if you can invoke an available inspection tool yourself!
+2. The up-to-date list of tools enabled for this session is provided below under "AVAILABLE TOOLS" and in the function calling schema.
+3. If the user reports an issue (502 Bad Gateway, 500 Internal Server Error, site unreachable, service failed to start) — YOU MUST FIRST call the appropriate read-only tools yourself:
    - Check web server error logs via read_webserver_logs.
-   - Check web server and PHP-FPM status via get_service_status or get_service_logs.
-   - Check stack and PHP mode via check_web_topology.
-3. Only after obtaining real data from inspection tools, provide the user with a thorough technical root-cause analysis and a concrete step-by-step resolution.
-4. Keep responses concise, professional, and directly to the point in the language used by the user (default: English).`
+   - Check web server, PHP-FPM, or app process status via get_service_status, get_service_logs, or get_app_process_status.
+   - Check stack and PHP mode via check_web_topology (or inspect_site_app for a specific site).
+4. Only after obtaining real data from inspection tools, provide the user with a thorough technical root-cause analysis and a concrete step-by-step resolution.
+5. Keep responses concise, professional, and directly to the point in the language used by the user (default: English).`
 
 // DefaultSystemPromptText defines the standard baseline persona and rules (Russian fallback).
 const DefaultSystemPromptText = DefaultSystemPromptTextRU
@@ -154,6 +121,35 @@ func (b *ContextBuilder) BuildSystemPrompt(ctx context.Context, opts BuilderOpti
 
 	sb.WriteString(basePrompt)
 	sb.WriteString("\n\n")
+
+	if len(opts.AvailableTools) > 0 {
+		sortedTools := make([]domain.ToolDefinition, len(opts.AvailableTools))
+		copy(sortedTools, opts.AvailableTools)
+		sort.Slice(sortedTools, func(i, j int) bool {
+			return sortedTools[i].Name < sortedTools[j].Name
+		})
+
+		if lang == "en" {
+			sb.WriteString("### AVAILABLE TOOLS:\n")
+			for _, td := range sortedTools {
+				mode := "read-only"
+				if td.IsMutating || td.ApprovalViaTask {
+					mode = "requires approval"
+				}
+				sb.WriteString(fmt.Sprintf("- `%s` [%s]: %s\n", td.Name, mode, td.Description))
+			}
+		} else {
+			sb.WriteString("### ДОСТУПНЫЕ ИНСТРУМЕНТЫ:\n")
+			for _, td := range sortedTools {
+				mode := "read-only"
+				if td.IsMutating || td.ApprovalViaTask {
+					mode = "требует подтверждения"
+				}
+				sb.WriteString(fmt.Sprintf("- `%s` [%s]: %s\n", td.Name, mode, td.Description))
+			}
+		}
+		sb.WriteString("\n")
+	}
 
 	if lang == "en" {
 		sb.WriteString(tameStackProductGuideEN)
@@ -294,7 +290,12 @@ TameStack is a desktop SSH server control panel with zero server-side web panel/
 Shortcuts: Ctrl+K for Command Palette, Ctrl+I to toggle the global AI Copilot anywhere.`
 
 var tameStackTabGuideRU = map[string]string{
+	"dashboard":    "Сводка по подключённым серверам, ресурсам и активным задачам.",
+	"servers":      "Добавление и редактирование SSH-серверов, проверка соединения, диагностика ОС и переключение режима audit/management.",
+	"monitoring":   "Мониторинг CPU, RAM, диска, аптайма и проверка доступности сайтов/эндпоинтов в реальном времени.",
+	"tasks":        "Очередь фоновых задач, статус выполнения, прогресс и логи SSH-операций.",
 	"sites":        "Создание сайтов (PHP/Laravel/WordPress/Static/Reverse Proxy), привязка доменов и алиасов, редактирование vhost Nginx/Apache с откатом, переключение версий PHP, а во вкладке «Приложение» — Artisan, .env, Queue/Scheduler и менеджер systemd-процессов для Node.js/Python/Go.",
+	"webservers":   "Установка и настройка Nginx/Apache, проверка синтаксиса конфигов, перезапуск и просмотр логов веб-сервера.",
 	"mail":         "Установка стека Postfix + Dovecot + OpenDKIM, добавление почтовых доменов, автоматическая генерация DKIM-ключей и готовых DNS-записей (DKIM/SPF/DMARC), создание и удаление почтовых ящиков, настройка переадресаций (алиасов).",
 	"dns":          "Установка BIND9, создание и удаление мастер-зон, редактирование ресурсных записей (A, AAAA, CNAME, MX, TXT, NS, SRV, CAA) с проверкой named-checkzone и автоматическим откатом при ошибке.",
 	"users":        "Список системных пользователей, создание изолированных пользователей сайтов, включение/отключение SFTP chroot (Match User + ForceCommand internal-sftp), управление SSH authorized_keys, смена пароля (chpasswd) и владельца каталогов (chown).",
@@ -304,12 +305,23 @@ var tameStackTabGuideRU = map[string]string{
 	"docker":       "Управление контейнерами, образами, томами, сетями, проектами Docker Compose и просмотр логов контейнеров.",
 	"ssl":          "Установка Certbot, выпуск и продление SSL-сертификатов Let's Encrypt, мониторинг сроков действия.",
 	"filemanager":  "SFTP-проводник, встроенный редактор файлов, изменение прав (chmod), анализ занятого места и очистка диска.",
+	"cron":         "Просмотр, создание, включение/выключение и удаление cron-задач пользователей и системы.",
+	"services":     "Управление systemd-службами, просмотр процессов, открытых портов и сетевая диагностика (DNS/TCP).",
+	"packages":     "Поиск, симуляция обновления (apt/dnf) и установка/обновление системных пакетов.",
 	"backups":      "Создание резервных копий сайтов, БД, конфигов и полного бэкапа, инспекция архивов, скачивание и восстановление.",
 	"provisioning": "Мастер первичной настройки чистого VPS: выбор эталонного профиля, расчёт плана установки и развёртывание стека.",
+	"terminal":     "Интерактивный SSH-терминал со встроенной AI-панелью помощи по командам и ошибкам.",
+	"ai":           "Полноэкранный AI-чат с историей, маршрутизацией моделей, инструментами, автономными агентами и настройками провайдеров.",
+	"settings":     "Настройки приложения, шифрования Vault/БД, языка интерфейса, логов и проверки обновлений.",
 }
 
 var tameStackTabGuideEN = map[string]string{
+	"dashboard":    "Overview of connected servers, resource usage, and active tasks.",
+	"servers":      "Add/edit SSH servers, test connectivity, run OS diagnostics, and switch audit/management mode.",
+	"monitoring":   "Real-time CPU, RAM, disk, uptime metrics, and website/endpoint health checks.",
+	"tasks":        "Background job queue, execution progress, and detailed SSH task logs.",
 	"sites":        "Create sites (PHP/Laravel/WordPress/Static/Reverse Proxy), edit Nginx/Apache vhosts with rollback, switch PHP versions, and in the App tab manage Laravel Artisan/.env/Queues/Scheduler or Node.js/Python/Go systemd processes.",
+	"webservers":   "Install and configure Nginx/Apache, validate config syntax, reload services, and inspect logs.",
 	"mail":         "Install Postfix + Dovecot + OpenDKIM, add mail domains, generate DKIM keys and copy-ready DKIM/SPF/DMARC records, create/delete mailboxes, and configure forwarding aliases.",
 	"dns":          "Install BIND9, create/delete master zones, edit A/AAAA/CNAME/MX/TXT/NS/SRV/CAA records with named-checkzone validation and rollback.",
 	"users":        "List OS users, create isolated site users, toggle SFTP chroot (Match User + internal-sftp), manage SSH authorized_keys, set passwords, and change directory ownership.",
@@ -319,6 +331,12 @@ var tameStackTabGuideEN = map[string]string{
 	"docker":       "Manage Docker containers, images, volumes, networks, Compose projects, and container logs.",
 	"ssl":          "Install Certbot, issue and renew Let's Encrypt certificates, monitor expiry.",
 	"filemanager":  "SFTP file explorer, file editor, chmod, disk usage analyzer, and cleanup.",
+	"cron":         "Inspect, create, toggle, and delete user and system cron jobs.",
+	"services":     "Manage systemd units, inspect running processes, listening ports, and network DNS/TCP checks.",
+	"packages":     "Search, simulate upgrades (apt/dnf), and install or update OS packages.",
 	"backups":      "Create site/DB/config/full backups, inspect archives, download, and restore.",
 	"provisioning": "Initial VPS setup wizard: choose stack blueprint, preview pre-flight plan, and provision.",
+	"terminal":     "Interactive SSH terminal with an embedded AI assistant panel for commands and errors.",
+	"ai":           "Full-screen AI chat with conversation history, model routing, tool manager, autonomous agents, and provider settings.",
+	"settings":     "Application settings, Vault/DB encryption, UI language, logs, and update checks.",
 }

@@ -237,12 +237,17 @@ func (s *Service) StreamMessageWithContext(
 			appLang = l
 		}
 	}
+	var activeTools []domain.ToolDefinition
+	if s.tools != nil {
+		activeTools = s.tools.ActiveDefinitionsLang(appLang)
+	}
 	sysPrompt, _ := s.builder.BuildSystemPrompt(ctx, aiContext.BuilderOptions{
 		ServerID:       conv.ServerID,
 		CustomPrompt:   conv.SystemPrompt,
 		IncludeMemory:  true,
 		LanguageLocale: appLang,
 		UIContext:      uiCtx,
+		AvailableTools: activeTools,
 	})
 
 	aliasingEnabled := true

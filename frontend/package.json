@@ -1,7 +1,7 @@
 {
   "name": "frontend",
   "private": true,
-  "version": "1.16.0",
+  "version": "1.16.1",
   "type": "module",
   "author": "Aleksandr Kireev <hello@bespredel.name>",
   "license": "GPL-3.0-only",
