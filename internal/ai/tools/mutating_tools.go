@@ -1,4 +1,4 @@
-﻿package tools
+package tools
 
 import (
 	"context"
@@ -24,6 +24,12 @@ var AllowedServicesToRestart = map[string]bool{
 	"redis":        true,
 	"redis-server": true,
 	"fail2ban":     true,
+	"docker":       true,
+	"postfix":      true,
+	"dovecot":      true,
+	"opendkim":     true,
+	"bind9":        true,
+	"named":        true,
 	"php-fpm":      true,
 	"php8.0-fpm":   true,
 	"php8.1-fpm":   true,
@@ -87,9 +93,10 @@ func RegisterMutatingTools(
 		currentContent := ""
 		if wsService != nil {
 			cur, err := wsService.GetConfig(ctx, serverID, filePath)
-			if err == nil {
-				currentContent = cur
+			if err != nil {
+				return nil, fmt.Errorf("не удалось прочитать текущий файл %s для расчёта diff: %w", filePath, err)
 			}
+			currentContent = cur
 		}
 
 		plan, err := policies.GenerateConfigChangePlan(serverID, filePath, currentContent, proposedContent, wsType)

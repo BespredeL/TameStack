@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Sparkles,
   Bot,
@@ -12,6 +12,11 @@ import {
   Loader2,
   ShieldAlert,
   Settings,
+  Wrench,
+  ChevronDown,
+  ChevronRight,
+  Check,
+  Brain,
 } from 'lucide-react';
 import { Badge, Button } from '../ui';
 import { MarkdownRenderer } from './MarkdownRenderer';
@@ -19,9 +24,11 @@ import { useTranslation } from '../../i18n/LanguageContext';
 import { useServer } from '../../context/ServerContext';
 import { getErrorMessage } from '../../utils/errors';
 import {
+  AIApproveTask,
   AICreateConversation,
   AIListMessages,
   AIListProviderConfigs,
+  AIRejectTask,
   AIStreamMessageWithContext,
 } from '../../../wailsjs/go/main/App';
 import { EventsOn } from '../../../wailsjs/runtime/runtime';
@@ -48,6 +55,166 @@ const getTabSuggestions = (tab: NavigationTab, t: (key: string) => string): stri
     t(`ai.copilot.suggestions.${key}.q1`),
     t(`ai.copilot.suggestions.${key}.q2`),
   ];
+};
+
+const parseThinkBlocks = (raw: string): { thinking: string; answer: string } => {
+  if (!raw) return { thinking: '', answer: '' };
+  const thinkingParts: string[] = [];
+  let answer = raw.replace(/<think>([\s\S]*?)<\/think>/gi, (_, inner) => {
+    const trimmed = String(inner || '').trim();
+    if (trimmed) thinkingParts.push(trimmed);
+    return '';
+  });
+  const openIdx = answer.toLowerCase().indexOf('<think>');
+  if (openIdx !== -1) {
+    const unclosed = answer.slice(openIdx + '<think>'.length).trim();
+    if (unclosed) thinkingParts.push(unclosed);
+    answer = answer.slice(0, openIdx);
+  }
+  return {
+    thinking: thinkingParts.join('\n\n'),
+    answer: answer.trim(),
+  };
+};
+
+const CopilotAssistantContent: React.FC<{ content: string; reasoningLabel: string }> = ({
+  content,
+  reasoningLabel,
+}) => {
+  const [thinkOpen, setThinkOpen] = useState(false);
+  const { thinking, answer } = parseThinkBlocks(content);
+
+  return (
+    <div className="space-y-2">
+      {thinking && (
+        <div className="rounded-lg border border-slate-800 bg-slate-950/70 overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setThinkOpen((v) => !v)}
+            className="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 text-[11px] text-slate-400 hover:text-slate-200 hover:bg-slate-900/70 transition cursor-pointer text-left"
+          >
+            <span className="flex items-center gap-1.5 font-medium">
+              <Brain className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+              <span>{reasoningLabel}</span>
+            </span>
+            {thinkOpen ? <ChevronDown className="w-3.5 h-3.5 shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 shrink-0" />}
+          </button>
+          {thinkOpen && (
+            <div className="border-t border-slate-800/80 px-2.5 py-2 text-[11px] text-slate-400 whitespace-pre-wrap leading-relaxed select-text max-h-56 overflow-y-auto">
+              {thinking}
+            </div>
+          )}
+        </div>
+      )}
+      {answer && <MarkdownRenderer content={answer} />}
+    </div>
+  );
+};
+
+const CopilotToolResult: React.FC<{
+  message: AIMessageRecord;
+  toolName?: string;
+  onApprovalComplete?: () => void;
+}> = ({ message, toolName, onApprovalComplete }) => {
+  const { t } = useTranslation();
+  const [isOpen, setIsOpen] = useState(false);
+  const [approvalStatus, setApprovalStatus] = useState<'pending' | 'approved' | 'rejected'>('pending');
+
+  let parsedData: any = null;
+  try {
+    parsedData = JSON.parse(message.content);
+  } catch {
+    parsedData = message.content;
+  }
+
+  const isApprovalRequired = parsedData && typeof parsedData === 'object' && parsedData.status === 'awaiting_approval';
+
+  if (isApprovalRequired) {
+    return (
+      <div className="flex gap-2.5 text-xs justify-start">
+        <div className="w-6 h-6 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
+          <ShieldAlert className="w-3.5 h-3.5" />
+        </div>
+        <div className="flex-1 min-w-0 rounded-xl border border-amber-500/30 bg-slate-900/80 p-2.5 space-y-2">
+          <div className="font-semibold text-amber-300 text-[11px]">
+            {t('ai.message.approvalRequired', { title: parsedData.title || parsedData.description || t('ai.message.aiAction') })}
+          </div>
+          {approvalStatus === 'pending' ? (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  if (parsedData.task_id) {
+                    await AIApproveTask(parsedData.task_id);
+                    setApprovalStatus('approved');
+                    onApprovalComplete?.();
+                  }
+                }}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-[11px] transition cursor-pointer"
+              >
+                <Check className="w-3 h-3" />
+                <span>{t('ai.message.approveAndRun')}</span>
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (parsedData.task_id) {
+                    await AIRejectTask(parsedData.task_id);
+                    setApprovalStatus('rejected');
+                    onApprovalComplete?.();
+                  }
+                }}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-700 hover:bg-slate-800 text-slate-300 text-[11px] transition cursor-pointer"
+              >
+                <X className="w-3 h-3" />
+                <span>{t('ai.message.reject')}</span>
+              </button>
+            </div>
+          ) : (
+            <div className={`text-[11px] font-semibold ${approvalStatus === 'approved' ? 'text-emerald-400' : 'text-rose-400'}`}>
+              {approvalStatus === 'approved' ? t('ai.message.taskApproved') : t('ai.message.taskRejected')}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  const displayName = toolName ? `${t('ai.message.toolOutput')}: ${toolName}` : t('ai.message.toolOutput');
+  const formattedBody =
+    typeof parsedData === 'string'
+      ? parsedData
+      : parsedData && typeof parsedData === 'object' && (parsedData.content || parsedData.raw_output || parsedData.output || parsedData.stdout)
+      ? String(parsedData.content || parsedData.raw_output || parsedData.output || parsedData.stdout)
+      : JSON.stringify(parsedData, null, 2);
+
+  return (
+    <div className="flex gap-2.5 text-xs justify-start">
+      <div className="w-6 h-6 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
+        <Wrench className="w-3.5 h-3.5" />
+      </div>
+      <div className="flex-1 min-w-0 rounded-xl border border-slate-800 bg-slate-900/60 overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setIsOpen((v) => !v)}
+          className="w-full flex items-center justify-between gap-2 px-3 py-1.5 hover:bg-slate-800/60 transition cursor-pointer text-left"
+        >
+          <span className="font-mono text-[11px] text-emerald-400 font-medium truncate">
+            {displayName}
+          </span>
+          <span className="flex items-center gap-1 text-[10px] text-slate-500 shrink-0">
+            <span>{isOpen ? t('common.collapse') : t('common.details')}</span>
+            {isOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+          </span>
+        </button>
+        {isOpen && (
+          <pre className="border-t border-slate-800/80 p-2.5 bg-slate-950/90 font-mono text-[10px] text-slate-300 whitespace-pre-wrap overflow-x-auto max-h-56 overflow-y-auto leading-relaxed select-text">
+            {formattedBody}
+          </pre>
+        )}
+      </div>
+    </div>
+  );
 };
 
 export const GlobalAICopilot: React.FC<GlobalAICopilotProps> = ({
@@ -199,6 +366,34 @@ export const GlobalAICopilot: React.FC<GlobalAICopilotProps> = ({
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, streamingContent, isOpen]);
+
+  const toolNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    messages.forEach((m) => {
+      if (m.role === 'assistant' && m.tool_calls_json) {
+        try {
+          const tcs = JSON.parse(m.tool_calls_json);
+          if (Array.isArray(tcs)) {
+            tcs.forEach((tc: any) => {
+              if (tc.id && tc.function?.name) {
+                map.set(tc.id, tc.function.name);
+              }
+            });
+          }
+        } catch {}
+      }
+    });
+    return map;
+  }, [messages]);
+
+  const visibleMessages = useMemo(() => {
+    return messages.filter((m) => {
+      if (m.role === 'assistant' && (!m.content || !m.content.trim())) {
+        return false;
+      }
+      return true;
+    });
+  }, [messages]);
 
   if (!isOpen) return null;
 
@@ -481,36 +676,49 @@ export const GlobalAICopilot: React.FC<GlobalAICopilotProps> = ({
           </div>
         )}
 
-        {messages.map((m) => (
-          <div
-            key={m.id}
-            className={`flex gap-2.5 text-xs ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
-          >
-            {m.role !== 'user' && (
-              <div className="w-6 h-6 rounded-md bg-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0 mt-0.5">
-                <Bot className="w-3.5 h-3.5" />
-              </div>
-            )}
+        {visibleMessages.map((m) =>
+          m.role === 'tool' ? (
+            <CopilotToolResult
+              key={m.id}
+              message={m}
+              toolName={m.tool_call_id ? toolNameMap.get(m.tool_call_id) : undefined}
+              onApprovalComplete={() => {
+                if (convId) {
+                  AIListMessages(convId).then((msgs: any) => setMessages(msgs || []));
+                }
+              }}
+            />
+          ) : (
             <div
-              className={`max-w-[85%] rounded-xl px-3 py-2 leading-relaxed ${
-                m.role === 'user'
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-slate-900 border border-slate-800 text-slate-200'
-              }`}
+              key={m.id}
+              className={`flex gap-2.5 text-xs ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
-              {m.role === 'user' ? (
-                <span className="whitespace-pre-wrap">{m.content}</span>
-              ) : (
-                <MarkdownRenderer content={m.content} />
+              {m.role !== 'user' && (
+                <div className="w-6 h-6 rounded-md bg-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0 mt-0.5">
+                  <Bot className="w-3.5 h-3.5" />
+                </div>
+              )}
+              <div
+                className={`max-w-[85%] rounded-xl px-3 py-2 leading-relaxed ${
+                  m.role === 'user'
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-slate-900 border border-slate-800 text-slate-200'
+                }`}
+              >
+                {m.role === 'user' ? (
+                  <span className="whitespace-pre-wrap">{m.content}</span>
+                ) : (
+                  <CopilotAssistantContent content={m.content} reasoningLabel={t('ai.copilot.reasoning')} />
+                )}
+              </div>
+              {m.role === 'user' && (
+                <div className="w-6 h-6 rounded-md bg-slate-800 text-slate-300 flex items-center justify-center shrink-0 mt-0.5">
+                  <User className="w-3.5 h-3.5" />
+                </div>
               )}
             </div>
-            {m.role === 'user' && (
-              <div className="w-6 h-6 rounded-md bg-slate-800 text-slate-300 flex items-center justify-center shrink-0 mt-0.5">
-                <User className="w-3.5 h-3.5" />
-              </div>
-            )}
-          </div>
-        ))}
+          )
+        )}
 
         {streamingContent && (
           <div className="flex gap-2.5 text-xs justify-start">
@@ -518,7 +726,7 @@ export const GlobalAICopilot: React.FC<GlobalAICopilotProps> = ({
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
             </div>
             <div className="max-w-[85%] rounded-xl px-3 py-2 bg-slate-900 border border-slate-800 text-slate-200 leading-relaxed">
-              <MarkdownRenderer content={streamingContent} />
+              <CopilotAssistantContent content={streamingContent} reasoningLabel={t('ai.copilot.reasoning')} />
             </div>
           </div>
         )}

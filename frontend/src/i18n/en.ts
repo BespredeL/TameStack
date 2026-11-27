@@ -3159,6 +3159,7 @@ export const en: Translations = {
       placeholderDisabled: 'Configure an AI provider first...',
       placeholderActive: 'Ask AI anything... (Enter to send)',
       sendMessage: 'Send message',
+      reasoning: 'AI Reasoning',
       suggestions: {
         sites: {
           q1: 'How to set up Node.js/Python with Reverse Proxy?',
@@ -3273,6 +3274,12 @@ export const en: Translations = {
       analyze_disk_usage: 'Analyzes server disk utilization: partition mount points, largest directories and files in the specified path, and cleanup opportunities.',
       list_system_processes: 'Returns top running processes on the server sorted by CPU and memory usage (PID, user, % CPU, % RAM, command).',
       list_backups: 'Returns the list of server backup records from the TameStack database.',
+      inspect_site_app: 'Inspects a site web application (Laravel, WordPress, Node.js, Python, Go), PHP version, .env, queue worker, and scheduler status.',
+      get_app_process_status: 'Returns systemd process status for a Node.js, Python, or Go app (PID, memory, ExecStart, and recent logs).',
+      list_system_users: 'Returns Linux and SFTP users on the server (UID/GID, home directory, shell, and SFTP Chroot isolation status).',
+      list_user_ssh_keys: 'Returns authorized public SSH keys (authorized_keys) for a Linux user on the server.',
+      inspect_mail_server: 'Inspects Postfix, Dovecot, and OpenDKIM status, mail domains, SPF/DMARC/DKIM records, mailboxes, and aliases.',
+      inspect_dns_zones: 'Returns BIND9 DNS server status, local zones, and optionally DNS records for a specific domain.',
     },
     resizeTooltip: 'Drag to resize chat history sidebar',
     toggleSidebarTooltipHide: 'Hide chat history panel',

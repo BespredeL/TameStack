@@ -31,4 +31,10 @@ var toolDescriptionsEN = map[string]string{
 	"analyze_disk_usage":        "Analyzes server disk utilization: partition mount points, largest directories and files in the specified path, and recommended cleanup opportunities.",
 	"list_system_processes":     "Returns top running processes on the server sorted by CPU and memory usage (PID, user, % CPU, % RAM, command). Helps identify resource-heavy or hung tasks.",
 	"list_backups":              "Returns the list of server backup records from the TameStack database.",
+	"inspect_site_app":          "Inspects a site's web application: detects framework (Laravel, WordPress, Node.js, Python, Go), PHP version, .env presence, queue worker and scheduler status.",
+	"get_app_process_status":    "Returns systemd process status for a site app (Node.js / Python / Go): unit name, active state, PID, memory, ExecStart, and recent logs.",
+	"list_system_users":         "Returns Linux and SFTP users on the server: UID/GID, home directories, shells, and SFTP Chroot isolation status.",
+	"list_user_ssh_keys":        "Returns authorized public SSH keys (authorized_keys) for the specified Linux user on the server. Safe read-only operation (public keys only).",
+	"inspect_mail_server":       "Inspects the mail stack (Postfix, Dovecot, OpenDKIM): service status, mail domains, SPF/DMARC/DKIM DNS records, mailboxes, and forwarding aliases.",
+	"inspect_dns_zones":         "Returns BIND9 DNS server status and list of local DNS zones; if domain is provided, also returns zone resource records (A, AAAA, MX, TXT, CNAME, NS).",
 }

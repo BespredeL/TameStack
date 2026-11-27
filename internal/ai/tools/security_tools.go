@@ -1,4 +1,4 @@
-﻿package tools
+package tools
 
 import (
 	"context"
@@ -64,33 +64,5 @@ func RegisterSecurityTools(r *Registry, secService *security.Service) {
 		}
 
 		return f2b, nil
-	})
-
-	r.Register(domain.ToolDefinition{
-		Name:        "run_security_audit",
-		Description: "Запускает комплексный аудит безопасности: проверяет открытые порты, конфигурацию SSH, пакеты обновлений и права.",
-		RiskLevel:   domain.RiskSafe,
-		IsMutating:  false,
-		Parameters: newSchema().
-			str("server_id", "Идентификатор сервера").
-			req("server_id").
-			build(),
-	}, func(ctx context.Context, args map[string]any) (any, error) {
-		serverID, _ := args["server_id"].(string)
-		srv, err := ResolveServer(ctx, r.database, serverID)
-		if err != nil {
-			return nil, err
-		}
-
-		if secService == nil {
-			return nil, fmt.Errorf("сервис безопасности не инициализирован")
-		}
-
-		report, err := secService.RunSecurityAudit(ctx, srv.ID)
-		if err != nil {
-			return nil, fmt.Errorf("ошибка проведения аудита безопасности: %w", err)
-		}
-
-		return report, nil
 	})
 }

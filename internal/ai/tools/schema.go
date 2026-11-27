@@ -19,7 +19,10 @@ type schemaBuilder struct {
 
 // newSchema starts an object parameter schema.
 func newSchema() *schemaBuilder {
-	return &schemaBuilder{properties: map[string]any{}}
+	return &schemaBuilder{
+		properties: map[string]any{},
+		required:   []string{},
+	}
 }
 
 // str adds a string property.

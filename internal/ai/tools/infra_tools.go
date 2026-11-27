@@ -14,6 +14,7 @@ import (
 	"tamestack/internal/modules/packages"
 	"tamestack/internal/modules/services"
 	"tamestack/internal/modules/ssl"
+	"tamestack/internal/ssh"
 )
 
 // RegisterInfraTools registers read-only inspection tools for Docker, SSL/Certbot, Cron, Packages, Disk/Files, Services, and Backups.
@@ -228,8 +229,12 @@ func RegisterInfraTools(
 			return nil, fmt.Errorf("файловый сервис не инициализирован")
 		}
 		targetPath, _ := args["path"].(string)
-		if strings.TrimSpace(targetPath) == "" {
+		targetPath = strings.TrimSpace(targetPath)
+		if targetPath == "" {
 			targetPath = "/"
+		}
+		if err := ssh.ValidateRemotePath(targetPath, false); err != nil {
+			return nil, fmt.Errorf("недопустимый путь: %w", err)
 		}
 		report, err := filesService.AnalyzeDiskUsage(ctx, srv.ID, targetPath)
 		if err != nil {

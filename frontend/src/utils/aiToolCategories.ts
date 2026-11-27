@@ -36,6 +36,8 @@ export function getToolCategory(toolName: string): ToolCategory {
     name.includes('ssl') ||
     name.includes('cert') ||
     name.includes('dns') ||
+    name.includes('ssh_keys') ||
+    name.includes('system_users') ||
     name.includes('check_port')
   ) {
     return 'security';
@@ -45,7 +47,15 @@ export function getToolCategory(toolName: string): ToolCategory {
     return 'database';
   }
 
-  if (name.includes('site') || name.includes('php') || name.includes('nginx') || name.includes('apache')) {
+  if (
+    name.includes('site') ||
+    name.includes('app_process') ||
+    name.includes('vhost') ||
+    name.includes('webserver') ||
+    name.includes('php') ||
+    name.includes('nginx') ||
+    name.includes('apache')
+  ) {
     return 'web_php';
   }
 

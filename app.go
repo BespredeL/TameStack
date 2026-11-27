@@ -197,6 +197,7 @@ func (a *App) bootstrapServices(dbPath string) error {
 	tools.RegisterMutatingTools(aiToolsRegistry, sqliteDB, webserverService, engine)
 	tools.RegisterWorkflowTools(aiToolsRegistry, siteDiagWf, secAuditWf, configOptWf)
 	tools.RegisterInfraTools(aiToolsRegistry, sqliteDB, dockerService, sslService, cronService, packagesService, filesService, servicesService, backupService)
+	tools.RegisterPlatformTools(aiToolsRegistry, sqliteDB, appsService, usersService, mailService, dnsService)
 
 	aiTaskHandlers := tools.NewTaskHandlerManager(cfg, sqliteDB, vault, pool)
 	aiTaskHandlers.RegisterHandlers(engine)

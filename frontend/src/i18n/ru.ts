@@ -3173,6 +3173,7 @@ export const ru: Translations = {
       placeholderDisabled: 'Сначала настройте AI-провайдера...',
       placeholderActive: 'Спросите AI... (Enter — отправить)',
       sendMessage: 'Отправить сообщение',
+      reasoning: 'Размышления AI',
       suggestions: {
         sites: {
           q1: 'Как поднять Node.js/Python за Reverse Proxy?',
@@ -3287,6 +3288,12 @@ export const ru: Translations = {
       analyze_disk_usage: 'Анализирует использование диска: точки монтирования, крупнейшие директории и файлы, рекомендации по безопасной очистке.',
       list_system_processes: 'Список процессов сервера с сортировкой по потреблению CPU и RAM (PID, пользователь, % CPU, % RAM, команда).',
       list_backups: 'Возвращает список сохраненных резервных копий (бэкапов) сервера из базы данных TameStack.',
+      inspect_site_app: 'Инспектирует приложение сайта (Laravel, WordPress, Node.js, Python, Go), версию PHP, .env, queue worker и scheduler.',
+      get_app_process_status: 'Возвращает статус systemd-процесса приложения (Node.js, Python, Go): PID, память, ExecStart и последние логи.',
+      list_system_users: 'Возвращает список системных и SFTP-пользователей сервера (UID/GID, домашний каталог, shell и статус SFTP Chroot).',
+      list_user_ssh_keys: 'Возвращает авторизованные публичные SSH-ключи (authorized_keys) указанного пользователя сервера.',
+      inspect_mail_server: 'Инспектирует почтовый стек (Postfix, Dovecot, OpenDKIM), домены, записи SPF/DMARC/DKIM, ящики и алиасы.',
+      inspect_dns_zones: 'Возвращает статус BIND9, список локальных DNS-зон и при необходимости записи указанного домена.',
     },
     resizeTooltip: 'Потяните, чтобы изменить ширину панели диалогов',
     toggleSidebarTooltipHide: 'Скрыть панель диалогов',
